@@ -3,6 +3,7 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/worker.js';
+import { categorize } from '../src/categories.js';
 
 const realFetch = globalThis.fetch;
 const env = { GOOGLE_MAPS_KEY: 'test-key', ASSETS: { fetch: async () => new Response('asset') } };
@@ -10,6 +11,8 @@ const env = { GOOGLE_MAPS_KEY: 'test-key', ASSETS: { fetch: async () => new Resp
 const openShop = {
   id: 'A',
   displayName: { text: '巷口麵' },
+  primaryType: 'restaurant',
+  types: ['restaurant', 'food'],
   primaryTypeDisplayName: { text: '麵店' },
   location: { latitude: 25.0335, longitude: 121.5645 },
   businessStatus: 'OPERATIONAL',
@@ -59,6 +62,16 @@ test('只回傳營業中的店，並合併重複', async () => {
   assert.equal(data.shops[0].closeAt, '2026-09-25T13:00:00Z');
   assert.equal(data.shops[0].photo.author, '小明');
   assert.equal(data.partial, true, '有一組查詢失敗時要標記 partial');
+  assert.deepEqual(data.shops[0].cats, ['noodle'], '店名有「麵」要分到麵類');
+});
+
+test('欄位清單不能出現會跳到 Atmosphere 計費的欄位', async () => {
+  await worker.fetch(nearby({ lat: 25.033, lng: 121.5654, radius: 1000 }), env);
+  const mask = calls[0].init.headers['X-Goog-FieldMask'];
+  for (const field of ['reviews', 'delivery', 'dineIn', 'editorialSummary', 'takeout', 'servesBreakfast', 'outdoorSeating']) {
+    assert.ok(!mask.includes(field), `不應該有 ${field}`);
+  }
+  assert.ok(mask.includes('places.primaryType'), '分類需要 primaryType');
 });
 
 test('金鑰放在 header，不會出現在網址', async () => {
@@ -109,4 +122,31 @@ test('照片名稱格式不對回 400', async () => {
 test('其他路徑交給靜態檔', async () => {
   const res = await worker.fetch(new Request('https://app.example/'), env);
   assert.equal(await res.text(), 'asset');
+});
+
+test('類別：看 Google 類型', () => {
+  assert.deepEqual(categorize({ primaryType: 'ramen_restaurant', displayName: { text: '一蘭' } }), ['noodle', 'foreign']);
+  assert.deepEqual(categorize({ primaryType: 'cafe', types: ['cafe', 'food'], displayName: { text: 'Simple Kaffa' } }), ['cafe']);
+  assert.deepEqual(categorize({ primaryType: 'breakfast_restaurant', displayName: { text: '晨間廚房' } }), ['brunch']);
+});
+
+test('類別：只有 meal_takeaway 是主要類型才算便當', () => {
+  assert.deepEqual(categorize({ primaryType: 'meal_takeaway', displayName: { text: '好味道' } }), ['bento']);
+  assert.deepEqual(categorize({ primaryType: 'restaurant', types: ['restaurant', 'meal_takeaway'], displayName: { text: '好味道' } }), []);
+});
+
+test('類別：看店名關鍵字', () => {
+  assert.deepEqual(categorize({ primaryType: 'restaurant', displayName: { text: '阿嬤便當' } }), ['bento']);
+  assert.deepEqual(categorize({ primaryType: 'restaurant', displayName: { text: '福記滷肉飯' } }), ['rice']);
+  assert.deepEqual(categorize({ primaryType: 'restaurant', displayName: { text: '夜市臭豆腐' } }), ['snack']);
+  assert.deepEqual(categorize({ primaryType: 'restaurant', displayName: { text: '晨光早午餐' } }), ['brunch']);
+});
+
+test('類別：麵包店不算麵', () => {
+  assert.deepEqual(categorize({ primaryType: 'bakery', displayName: { text: '吳寶春麵包店' } }), ['cafe']);
+});
+
+test('類別：沒有線索就不分類', () => {
+  assert.deepEqual(categorize({ primaryType: 'restaurant', displayName: { text: '好好吃' } }), []);
+  assert.deepEqual(categorize({}), []);
 });
