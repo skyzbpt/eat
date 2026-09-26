@@ -2,7 +2,7 @@
 // 執行：npm test
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/worker.js';
+import worker, { quotaResetHour } from '../src/worker.js';
 import { categorize } from '../src/categories.js';
 
 const realFetch = globalThis.fetch;
@@ -113,6 +113,28 @@ test('沒設金鑰回 500', async () => {
 test('nearby 只接受 POST', async () => {
   const res = await worker.fetch(new Request('https://app.example/api/nearby'), env);
   assert.equal(res.status, 405);
+});
+
+test('每日上限用完：回 429 和看得懂的訊息', async () => {
+  globalThis.fetch = async () => new Response('RESOURCE_EXHAUSTED', { status: 429 });
+  const res = await worker.fetch(nearby({ lat: 25.033, lng: 121.5654 }), env);
+  assert.equal(res.status, 429);
+  const data = await res.json();
+  assert.equal(data.code, 'quota');
+  assert.match(data.error, /^今天的免費查詢次數用完了，台灣時間下午 [34] 點後再來抽$/);
+});
+
+test('只有部分查詢是 429，仍算一般錯誤', async () => {
+  let n = 0;
+  globalThis.fetch = async () => new Response('x', { status: n++ === 0 ? 429 : 500 });
+  const res = await worker.fetch(nearby({ lat: 25.033, lng: 121.5654 }), env);
+  assert.equal(res.status, 502);
+  assert.equal((await res.json()).code, undefined);
+});
+
+test('配額重算時間：夏令下午 3 點、冬令下午 4 點（台灣時間）', () => {
+  assert.equal(quotaResetHour(new Date('2026-09-26T04:00:00Z')), 15);
+  assert.equal(quotaResetHour(new Date('2026-12-01T04:00:00Z')), 16);
 });
 
 test('照片轉址到 Google 給的網址', async () => {

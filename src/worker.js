@@ -115,6 +115,13 @@ async function handleNearby(request, env) {
   if (lists.length === 0) {
     const reason = settled[0] && settled[0].reason;
     console.error('Places 查詢全部失敗', reason);
+    // 全部都是 429：自己在 Google Cloud 設的每日上限用完了，要等 Google 重算。
+    if (settled.every((r) => r.reason && r.reason.status === 429)) {
+      return json({
+        error: `今天的免費查詢次數用完了，台灣時間下午 ${quotaResetHour() - 12} 點後再來抽`,
+        code: 'quota'
+      }, 429);
+    }
     return json({ error: 'Google 店家資料暫時抓不到', detail: String((reason && reason.message) || '') }, 502);
   }
 
@@ -158,10 +165,19 @@ async function searchNearby(key, lat, lng, radius, query) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Places ${res.status}: ${text.slice(0, 300)}`);
+    const err = new Error(`Places ${res.status}: ${text.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
   }
   const data = await res.json();
   return Array.isArray(data.places) ? data.places : [];
+}
+
+// Google 每日配額在美國太平洋時間半夜 12 點重算，換成台灣時間是幾點（夏令 15、冬令 16）。
+export function quotaResetHour(now = new Date()) {
+  const at = (timeZone) => new Date(now.toLocaleString('en-US', { timeZone }));
+  const diff = Math.round((at('Asia/Taipei') - at('America/Los_Angeles')) / 3600000);
+  return diff === 15 || diff === 16 ? diff : 15;
 }
 
 // 只回傳前端用得到的欄位，其餘丟掉。
