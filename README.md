@@ -62,6 +62,7 @@ npm run dev
 
 - 每次抓附近店家會查 3 次，屬於 Nearby Search Enterprise，每月前 1,000 次免費。
 - 抽中的店有照片時會載入 1 張，屬於 Place Details Photos，每月前 1,000 次免費。
+- 手動改位置：打字時的建議屬於 Autocomplete Requests（同一次搜尋只算前 12 次），選好地點查座標屬於 Place Details Essentials，兩者每月各 10,000 次免費。換到新地點後會重新抓一次店家（3 次 Nearby Search）。
 - App 開著時，同一個地點 15 分鐘內重抽不會再查；走超過 150 公尺或換範圍才會重新查。
 - 一天打開 5 次大約是每月 450 次查詢，在免費額度內。想更省，可以把 `src/worker.js` 裡 `QUERIES` 刪到只剩前兩組。
 

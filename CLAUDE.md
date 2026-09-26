@@ -9,7 +9,7 @@
 一個 Cloudflare Worker 專案，同時提供網頁和 API，部署一次就好。
 
 - `public/index.html`：整個前端，單一檔案，原生 JS，沒有框架、沒有建置步驟。
-- `src/worker.js`：後端。`POST /api/nearby` 查附近營業中的店，`GET /api/photo` 轉店家照片。其他路徑由 `[assets]` 回傳 `public/` 的靜態檔。
+- `src/worker.js`：後端。`POST /api/nearby` 查附近營業中的店，`GET /api/photo` 轉店家照片，`POST /api/autocomplete`、`POST /api/place` 給手動改位置用（地點建議、查座標）。其他路徑由 `[assets]` 回傳 `public/` 的靜態檔。
 - `src/categories.js`：依 `primaryType`、`types` 和店名關鍵字幫店家分類別（key 要和前端 `CATEGORIES` 一致）。放在 Worker 端是為了能用 `npm test` 測，不會多打 API。
 - `public/manifest.webmanifest`、`public/icons/`：PWA 設定和籤筒圖示。刻意不加 Service Worker（不能快取店家資料）。
 - `test/worker.test.mjs`：用假的 Google 回應測 Worker，不會真的呼叫 API。
@@ -43,6 +43,7 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 4. **照片要標出處**。顯示 `authorAttributions` 裡的作者名稱和連結。
 5. **注意欄位計費等級**。`FIELD_MASK` 目前最高到 Nearby Search Enterprise。不要加 `reviews`、`delivery`、`dineIn`、`editorialSummary` 這類欄位，會跳到更貴的 Enterprise + Atmosphere。
 6. **注意查詢次數**。每次抓店家 = `QUERIES` 的組數次計費（目前 3 次）。Enterprise 每月前 1,000 次免費。新增查詢前要先算成本告訴 Sky。
+7. **手動改位置的計費**。地點建議（Autocomplete）和查座標（Place Details）共用同一個 sessionToken；同一次搜尋前 12 次建議計費，查座標算 Essentials，兩者每月各 10,000 次免費。`/api/place` 的 FieldMask 只能是 `location`，加 `displayName` 等欄位會跳到 Pro。前端要等注音選完字、停手 0.35 秒才問建議。手動選的座標只放記憶體，不存手機。顯示建議時要有 Google Maps 標示。
 
 ## 設計規範
 
@@ -72,10 +73,9 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 
 ## 目前進度
 
-已完成：部署上線（Cloudflare Workers Builds，合併進 main 自動部署）、定位、營業中篩選、快打烊提醒、單抽／抽三選一、評分與評論數門檻、7 天內吃過不抽（按導航才算吃過）、黑名單、重抽次數文案、照片與出處、Worker 測試、類別篩選、PWA（manifest 和圖示）、定位問題自動判斷（App 內建瀏覽器、非 https、沒給權限、定位沒開、逾時，依 iPhone／Android 給設定步驟）與「複製網址」「用瀏覽器打開（LINE）」按鈕、LINE Pay 自己做記號（籤卡外的開關＋「只抽可以用 LINE Pay 的店」篩選；LINE Pay 和 Google 都沒有公開的「哪些店收 LINE Pay」資料，所以只能自己記）。
+已完成：部署上線（Cloudflare Workers Builds，合併進 main 自動部署）、定位、營業中篩選、快打烊提醒、單抽／抽三選一、評分與評論數門檻、7 天內吃過不抽（按導航才算吃過）、黑名單、重抽次數文案、照片與出處、Worker 測試、類別篩選、PWA（manifest 和圖示）、定位問題自動判斷（App 內建瀏覽器、非 https、沒給權限、定位沒開、逾時，依 iPhone／Android 給設定步驟）與「複製網址」「用瀏覽器打開（LINE）」按鈕、手動改位置（右上角位置按鈕／定位失敗時的「改用手動輸入地點」→ 打字建議 → 選地點；不記住座標）、LINE Pay 自己做記號（籤卡外的開關＋「只抽可以用 LINE Pay 的店」篩選；LINE Pay 和 Google 都沒有公開的「哪些店收 LINE Pay」資料，所以只能自己記）。
 
 還沒做（依優先順序）：
 
 1. **補 Google 標誌圖**：要 Sky 從 Google 官方下載 Google Maps 標誌（開發環境連不到 Google 網域，也不能自己畫）。
-2. **手動改位置**：定位不準或想查別處時用。注意 Geocoding 另外計費，做之前先算成本給 Sky。
-3. 之後再說：LINE LIFF 多人投票、LINE Pay 記號跨手機／和朋友共用（需要 D1 之類的資料庫，只存 place_id）、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。
+2. 之後再說：LINE LIFF 多人投票、LINE Pay 記號跨手機／和朋友共用（需要 D1 之類的資料庫，只存 place_id）、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。
