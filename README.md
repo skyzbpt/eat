@@ -68,6 +68,7 @@ npm run dev
 ## 資料與隱私
 
 - 位置只在查詢時送到你自己的 Worker，再轉給 Google，不會被存下來。
-- 手機只存你的設定、黑名單和「吃過的店」，而且只存 Google 的店家編號（place_id），這是 Google 條款允許長期保存的唯一欄位。
+- 手機只存你的設定、黑名單、「吃過的店」和「可以用 LINE Pay」的記號，而且只存 Google 的店家編號（place_id），這是 Google 條款允許長期保存的唯一欄位。
+- LINE Pay 記號是你自己按的，只存在這支手機。LINE Pay 和 Google 都沒有公開「哪些店收 LINE Pay」的資料。
 - 網址是公開的。只想給自己用的話，可以在 Cloudflare 的 Zero Trust 用 Access 鎖定只有你的 email 能開。
 - 如果之後要公開給別人用，Google 要求網站提供使用條款和隱私權政策頁面。

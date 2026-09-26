@@ -119,6 +119,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .stat-label { font-size: 13px; color: var(--muted); }
 .stat-value { font-size: 20px; font-weight: 700; }
 .stat-sub { font-size: 12px; color: var(--muted); }
+.pay-toggle { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border-radius: 22px; border: 1.5px dashed var(--line); background: var(--card); color: var(--deep); font-size: 14px; font-weight: 500; cursor: pointer; }
+.pay-toggle[aria-pressed="true"] { border-style: solid; border-color: var(--sky); background: var(--sky-soft); color: var(--ink); }
+.pay-toggle .ic-on, .pay-toggle[aria-pressed="true"] .ic-off { display: none; }
+.pay-toggle[aria-pressed="true"] .ic-on { display: block; }
+.pay-tag { align-self: flex-start; margin: 0; padding: 4px 10px; border-radius: 12px; background: var(--sky-soft); color: var(--deep); font-size: 13px; font-weight: 500; }
 .badge-warn { align-self: flex-start; margin: 0; padding: 6px 12px; border-radius: 14px; background: var(--warn-bg); color: var(--warn); font-size: 14px; font-weight: 500; }
 .attribution { margin: 0; display: flex; align-items: center; justify-content: flex-end; min-height: 20px; }
 .g-logo { height: 16px; width: auto; }
@@ -271,6 +276,13 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
       <p class="attribution"><img class="g-logo" src="/google-logo.png" alt="Google"></p>
     </article>
 
+    <!-- 放在籤卡外面：這是自己做的記號，不是 Google 的資料 -->
+    <button type="button" id="payBtn" class="pay-toggle" aria-pressed="false">
+      <svg class="ic-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h15a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/><path d="M3 7l12-4v4"/><circle cx="16.5" cy="13.5" r="1"/></svg>
+      <svg class="ic-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>
+      <span id="payText"></span>
+    </button>
+
     <div class="spacer"></div>
 
     <div class="row">
@@ -312,6 +324,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     <div class="stack">
       <button type="button" id="expandBtn" class="btn-primary">擴大到 2 公里</button>
       <button type="button" id="anyCat" class="btn-outline">改成不限類別</button>
+      <button type="button" id="anyPay" class="btn-outline">改成不限付款方式</button>
       <button type="button" id="clearAll" class="btn-outline">清空這次排除的店</button>
       <button type="button" id="emptySettings" class="btn-outline">放寬篩選條件</button>
       <button type="button" class="btn-ghost" data-go="home">回首頁</button>
@@ -350,6 +363,10 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
         <span class="t-text"><span class="t-title">最近吃過的先不抽</span><span class="t-sub">按過導航的店，7 天內不會再抽到</span></span>
         <span class="track" aria-hidden="true"><span class="knob"></span></span>
       </button>
+      <button type="button" class="toggle" data-key="onlyLinePay">
+        <span class="t-text"><span class="t-title">只抽可以用 LINE Pay 的店</span><span id="payCount" class="t-sub"></span></span>
+        <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      </button>
       <div class="black-row">
         <div>
           <p class="t-title">黑名單</p>
@@ -379,8 +396,9 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     radius: 1000,
     mode: 'one',
     cats: [],
-    settings: { minRating: 4, fewReviews: true, skipSoon: true, skipRecent: true },
+    settings: { minRating: 4, fewReviews: true, skipSoon: true, skipRecent: true, onlyLinePay: false },
     blacklist: [],
+    linepay: [],   // 自己記下「可以用 LINE Pay」的店，只存 place_id
     recent: {}
   };
 
@@ -399,6 +417,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
         cats: Array.isArray(data.cats) ? data.cats.filter((k) => k in CAT_LABEL) : [],
         settings: Object.assign(base.settings, data.settings || {}),
         blacklist: Array.isArray(data.blacklist) ? data.blacklist : [],
+        linepay: Array.isArray(data.linepay) ? data.linepay.filter((id) => typeof id === 'string') : [],
         recent: data.recent && typeof data.recent === 'object' ? data.recent : {}
       };
     } catch (e) {
@@ -481,7 +500,8 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   // ---------- 篩選 ----------
   function catNames() { return store.cats.map((k) => CAT_LABEL[k]).join('、'); }
   // ignoreCats：算每個類別按鈕上的數字時，先不套用類別篩選
-  function eligiblePool(ignoreCats) {
+  // ignorePay：判斷是不是「只抽 LINE Pay」把店都擋掉了
+  function eligiblePool({ ignoreCats = false, ignorePay = false } = {}) {
     const s = store.settings;
     const recentCut = Date.now() - RECENT_MS;
     return state.shops.filter((shop) => {
@@ -489,6 +509,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
       if (!ignoreCats && store.cats.length && !(shop.cats || []).some((c) => store.cats.includes(c))) return false;
       if (state.excluded.has(shop.id)) return false;
       if (store.blacklist.includes(shop.id)) return false;
+      if (!ignorePay && s.onlyLinePay && !store.linepay.includes(shop.id)) return false;
       if (s.skipRecent && store.recent[shop.id] > recentCut) return false;
       if (s.minRating > 0 && (shop.rating === null || shop.rating < s.minRating)) return false;
       if (s.fewReviews && shop.reviews < 30) return false;
@@ -504,6 +525,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     if (s.fewReviews) parts.push('評論 30 則以上');
     if (s.skipSoon) parts.push('快打烊不抽');
     if (s.skipRecent) parts.push('7 天內吃過不抽');
+    if (s.onlyLinePay) parts.push('只抽 LINE Pay');
     return parts.join('、');
   }
 
@@ -731,7 +753,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
       b.setAttribute('aria-pressed', String(b.dataset.mode === store.mode));
     });
 
-    const base = state.fetched && state.fetched.radius === store.radius && !state.loading ? eligiblePool(true) : null;
+    const base = state.fetched && state.fetched.radius === store.radius && !state.loading ? eligiblePool({ ignoreCats: true }) : null;
     document.querySelectorAll('[data-cat]').forEach((b) => {
       const key = b.dataset.cat;
       const on = key === 'all' ? store.cats.length === 0 : store.cats.includes(key);
@@ -839,6 +861,13 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     const phone = (s.phone || '').replace(/[^\d+]/g, '');
     $('callBtn').hidden = !phone;
     if (phone) $('callBtn').href = 'tel:' + phone;
+    renderPay();
+  }
+
+  function renderPay() {
+    const on = !!state.current && store.linepay.includes(state.current.id);
+    $('payBtn').setAttribute('aria-pressed', String(on));
+    $('payText').textContent = on ? '你記過：可以用 LINE Pay' : '這家可以用 LINE Pay？點一下記下來';
   }
 
   function renderThree() {
@@ -857,6 +886,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
       info.append(el('p', 'trio-meta', `${rating}步行 ${walkMinutes(s.distance)} 分鐘`));
       const m = minutesToClose(s);
       if (m !== null && m < 60) info.append(el('p', 'badge-warn', `${m} 分鐘後打烊`));
+      if (store.linepay.includes(s.id)) info.append(el('p', 'pay-tag', '你記過可以用 LINE Pay'));
 
       const btn = el('button', 'pick-btn', '就這家');
       btn.type = 'button';
@@ -878,8 +908,15 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     let why = '附近現在剛好沒有開著的店。';
     if (state.excluded.size > 0) why = '這次開著的店都被你排除了，或是被篩選條件擋掉了。';
     else if (state.shops.length > 0) why = '附近開著的店都被篩選條件擋掉了，放寬一點再抽看看。';
-    if (cn && state.excluded.size === 0 && eligiblePool(true).length > 0) why = `附近開著的店裡，現在沒有${cn}。換個類別，或改成不限類別再抽。`;
+    if (cn && state.excluded.size === 0 && eligiblePool({ ignoreCats: true }).length > 0) why = `附近開著的店裡，現在沒有${cn}。換個類別，或改成不限類別再抽。`;
+    const pay = store.linepay.length;
+    if (store.settings.onlyLinePay && state.excluded.size === 0 && eligiblePool({ ignorePay: true }).length > 0) {
+      why = pay === 0
+        ? '你還沒記過可以用 LINE Pay 的店。先改成不限付款方式，抽到店付款時，在籤上點一下「可以用 LINE Pay」記下來。'
+        : `你記過的 ${pay} 家 LINE Pay 店，附近現在沒有開著又符合條件的。改成不限付款方式再抽看看。`;
+    }
     $('anyCat').hidden = store.cats.length === 0;
+    $('anyPay').hidden = !store.settings.onlyLinePay;
     $('emptyText').textContent = why;
     $('expandBtn').hidden = store.radius >= 2000;
     $('expandBtn').textContent = store.radius < 1000 ? '擴大到 1 公里' : '擴大到 2 公里';
@@ -893,6 +930,10 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     document.querySelectorAll('.toggle[data-key]').forEach((b) => {
       b.setAttribute('aria-pressed', String(!!store.settings[b.dataset.key]));
     });
+    const pay = store.linepay.length;
+    $('payCount').textContent = pay
+      ? `只會抽到你記過的店，目前記了 ${pay} 家`
+      : '還沒記過任何店。付款時在籤上點一下就能記下來';
     const n = store.blacklist.length;
     $('blackText').textContent = n ? `${n} 家店永遠不會被抽到` : '還沒有店在黑名單裡';
     $('clearBlack').disabled = n === 0;
@@ -973,6 +1014,15 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     }
     draw();
   });
+  $('payBtn').addEventListener('click', () => {
+    const s = state.current;
+    if (!s) return;
+    const i = store.linepay.indexOf(s.id);
+    if (i >= 0) store.linepay.splice(i, 1);
+    else store.linepay.push(s.id);
+    saveStore();
+    renderPay();
+  });
   $('navBtn').addEventListener('click', () => {
     if (!state.current) return;
     store.recent[state.current.id] = Date.now();
@@ -989,6 +1039,11 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   });
   $('anyCat').addEventListener('click', () => {
     store.cats = [];
+    saveStore();
+    show('home');
+  });
+  $('anyPay').addEventListener('click', () => {
+    store.settings.onlyLinePay = false;
     saveStore();
     show('home');
   });
