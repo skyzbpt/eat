@@ -837,13 +837,17 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
       });
       const data = await res.json().catch(() => ({}));
       if (seq !== state.fetchSeq) return;
-      if (!res.ok) throw new Error(data.detail || data.error || `HTTP ${res.status}`);
+      if (!res.ok) {
+        const err = new Error(data.detail || data.error || `HTTP ${res.status}`);
+        if (data.code === 'quota' && data.error) err.userText = data.error;
+        throw err;
+      }
       state.shops = Array.isArray(data.shops) ? data.shops : [];
       state.fetched = { at: Date.now(), radius, lat, lng };
     } catch (e) {
       if (seq !== state.fetchSeq) return;
       console.error('抓店家失敗：', e);
-      state.error = '店家資料暫時抓不到，等一下再試試';
+      state.error = e.userText || '店家資料暫時抓不到，等一下再試試';
     } finally {
       if (seq === state.fetchSeq) {
         state.loading = false;
