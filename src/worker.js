@@ -1,7 +1,9 @@
 // 抽食籤 Worker
-// 負責兩件事：
-//   POST /api/nearby  用使用者位置向 Google Places 查附近「現在有開」的店
-//   GET  /api/photo   把店家照片轉給前端（金鑰不會出現在瀏覽器）
+// 負責這些事：
+//   POST /api/nearby        用使用者位置向 Google Places 查附近「現在有開」的店
+//   GET  /api/photo         把店家照片轉給前端（金鑰不會出現在瀏覽器）
+//   POST /api/autocomplete  手動改位置：打字時給地點建議
+//   POST /api/place         手動改位置：選好建議後查座標
 // 其他路徑交給 public/ 裡的靜態檔（index.html）。
 
 import { categorize } from './categories.js';
@@ -43,6 +45,15 @@ const QUERIES = [
 const MIN_RADIUS = 100;
 const MAX_RADIUS = 3000;
 
+// 手動改位置用 Autocomplete (New) + Place Details (New)，同一次搜尋共用 sessionToken。
+// 同一個 session 前 12 次建議算 Autocomplete Requests，選定後查座標算 Place Details Essentials，
+// 兩者每月各有 10,000 次免費。查座標只拿 location（Essentials），不要加 displayName（Pro）等欄位。
+const AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
+const PLACE_FIELD_MASK = 'location';
+const MAX_SUGGESTIONS = 5;
+const SESSION_RE = /^[A-Za-z0-9_-]{8,36}$/;
+const PLACE_ID_RE = /^[A-Za-z0-9_-]{8,256}$/;
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -55,6 +66,16 @@ export default {
     if (url.pathname === '/api/photo') {
       if (request.method !== 'GET') return json({ error: '請用 GET' }, 405);
       return guard(request, url) || handlePhoto(url, env);
+    }
+
+    if (url.pathname === '/api/autocomplete') {
+      if (request.method !== 'POST') return json({ error: '請用 POST' }, 405);
+      return guard(request, url) || handleAutocomplete(request, env);
+    }
+
+    if (url.pathname === '/api/place') {
+      if (request.method !== 'POST') return json({ error: '請用 POST' }, 405);
+      return guard(request, url) || handlePlace(request, env);
     }
 
     if (env.ASSETS) return env.ASSETS.fetch(request);
@@ -195,6 +216,73 @@ async function handlePhoto(url, env) {
     status: 302,
     headers: { Location: data.photoUri, 'Cache-Control': 'no-store' }
   });
+}
+
+async function handleAutocomplete(request, env) {
+  if (!env.GOOGLE_MAPS_KEY) return json({ error: '還沒設定 GOOGLE_MAPS_KEY' }, 500);
+
+  const body = await request.json().catch(() => null);
+  const input = typeof (body && body.input) === 'string' ? body.input.trim() : '';
+  const sessionToken = body && body.sessionToken;
+  if (input.length < 2 || input.length > 60) return json({ error: '請輸入 2 到 60 個字' }, 400);
+  if (typeof sessionToken !== 'string' || !SESSION_RE.test(sessionToken)) return json({ error: 'sessionToken 不正確' }, 400);
+
+  const req = { input, sessionToken, languageCode: 'zh-TW', regionCode: 'tw' };
+  // 有目前位置就優先建議附近的地點（只是偏好，不會限制在附近）
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+    req.locationBias = { circle: { center: { latitude: lat, longitude: lng }, radius: 50000 } };
+  }
+
+  const res = await fetch(AUTOCOMPLETE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': env.GOOGLE_MAPS_KEY },
+    body: JSON.stringify(req)
+  });
+  if (!res.ok) {
+    console.error('Autocomplete 失敗', res.status, (await res.text()).slice(0, 300));
+    return json({ error: '地點建議暫時抓不到' }, 502);
+  }
+  const data = await res.json().catch(() => ({}));
+  const suggestions = [];
+  for (const item of Array.isArray(data.suggestions) ? data.suggestions : []) {
+    const p = item && item.placePrediction;
+    if (!p || !p.placeId) continue;
+    const fmt = p.structuredFormat || {};
+    suggestions.push({
+      id: p.placeId,
+      main: (fmt.mainText && fmt.mainText.text) || (p.text && p.text.text) || '',
+      secondary: (fmt.secondaryText && fmt.secondaryText.text) || ''
+    });
+    if (suggestions.length >= MAX_SUGGESTIONS) break;
+  }
+  return json({ suggestions });
+}
+
+async function handlePlace(request, env) {
+  if (!env.GOOGLE_MAPS_KEY) return json({ error: '還沒設定 GOOGLE_MAPS_KEY' }, 500);
+
+  const body = await request.json().catch(() => null);
+  const id = body && body.id;
+  const sessionToken = body && body.sessionToken;
+  if (typeof id !== 'string' || !PLACE_ID_RE.test(id)) return json({ error: '地點參數不正確' }, 400);
+  if (typeof sessionToken !== 'string' || !SESSION_RE.test(sessionToken)) return json({ error: 'sessionToken 不正確' }, 400);
+
+  const res = await fetch(
+    `https://places.googleapis.com/v1/places/${id}?sessionToken=${encodeURIComponent(sessionToken)}&languageCode=zh-TW`,
+    { headers: { 'X-Goog-Api-Key': env.GOOGLE_MAPS_KEY, 'X-Goog-FieldMask': PLACE_FIELD_MASK } }
+  );
+  if (!res.ok) {
+    console.error('Place Details 失敗', res.status, (await res.text()).slice(0, 300));
+    return json({ error: '這個地點的位置暫時抓不到' }, 502);
+  }
+  const data = await res.json().catch(() => ({}));
+  const loc = data.location || {};
+  if (!Number.isFinite(loc.latitude) || !Number.isFinite(loc.longitude)) {
+    return json({ error: '這個地點沒有座標' }, 502);
+  }
+  return json({ lat: loc.latitude, lng: loc.longitude });
 }
 
 function json(data, status = 200) {

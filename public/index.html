@@ -51,6 +51,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .brand { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.2; }
 .loc { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 14px; color: var(--muted); }
 .loc svg { flex-shrink: 0; }
+.place-btn { min-height: 44px; max-width: 200px; display: inline-flex; align-items: center; gap: 4px; padding: 0 12px; border-radius: 22px; border: 1.5px solid var(--line); background: var(--card); color: var(--muted); font-size: 14px; cursor: pointer; }
+.place-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place-btn svg { flex-shrink: 0; }
+.place-btn.is-manual { border-color: var(--sky); color: var(--deep); font-weight: 500; }
 .link-btn { min-height: 44px; padding: 0 6px; background: none; border: 0; color: var(--deep); font-size: 14px; font-weight: 500; cursor: pointer; }
 
 .group { display: flex; flex-direction: column; gap: 10px; }
@@ -156,6 +160,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .stack { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
 
 dialog { width: 100%; max-width: 440px; max-height: 90dvh; margin: auto auto 0; padding: 0; border: 0; border-radius: 24px 24px 0 0; background: var(--mist); color: var(--ink); }
+#placeSheet { margin: 0 auto auto; border-radius: 0 0 24px 24px; }   /* 放上面，鍵盤跳出來才不會擋住 */
+#placeSheet .sheet { padding: calc(16px + env(safe-area-inset-top)) 20px 20px; gap: 12px; }
+.search-box { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 16px; border-radius: 26px; border: 1.5px solid var(--line); background: var(--card); color: var(--muted); }
+.search-box:focus-within { border-color: var(--deep); }
+.search-box input { flex: 1; min-width: 0; min-height: 48px; border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--ink); }
+.search-box input:focus { outline: none; }
+.place-hint { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.place-list { list-style: none; margin: 0; padding: 4px 0; background: var(--card); border-radius: 20px; }
+.place-list:empty { display: none; }
+.place-list button { width: 100%; min-height: 56px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 18px; border: 0; border-top: 1px solid var(--hair); background: none; text-align: left; cursor: pointer; }
+.place-list li:first-child button { border-top: 0; }
+.p-main { font-size: 16px; font-weight: 500; color: var(--ink); }
+.p-sub { font-size: 13px; color: var(--muted); }
+.gps-btn { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 24px; border: 1.5px solid var(--line); background: var(--card); color: var(--deep); font-size: 15px; font-weight: 500; cursor: pointer; }
 dialog::backdrop { background: rgba(15, 42, 63, .35); }
 .sheet { padding: 20px 20px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; }
@@ -185,9 +203,12 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     <header class="home-head">
       <h1 class="brand">抽食籤</h1>
       <div class="loc">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21c-4-4.2-7-7.6-7-11a7 7 0 0 1 14 0c0 3.4-3 6.8-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-        <span id="locText">還沒定位</span>
-        <button type="button" id="relocate" class="link-btn">重新定位</button>
+        <button type="button" id="placeBtn" class="place-btn" aria-haspopup="dialog">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21c-4-4.2-7-7.6-7-11a7 7 0 0 1 14 0c0 3.4-3 6.8-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          <span id="locText">還沒定位</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <button type="button" id="relocate" class="link-btn" hidden>再試一次</button>
       </div>
     </header>
 
@@ -226,6 +247,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
         <a id="openExternal" class="btn-primary" hidden>用瀏覽器打開</a>
         <button type="button" id="copyUrl" class="btn-outline">複製網址</button>
         <p id="urlText" class="url-text"></p>
+        <button type="button" id="manualFromError" class="btn-outline">改用手動輸入地點</button>
       </div>
     </div>
 
@@ -378,6 +400,27 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   </form>
 </dialog>
 
+<dialog id="placeSheet" aria-labelledby="placeTitle">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="placeTitle">換個地點抽</h2>
+      <button type="button" id="placeClose" class="link-btn">關閉</button>
+    </div>
+    <label class="search-box">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="placeInput" type="search" placeholder="輸入地名或地址，例如：台北車站" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="60" aria-label="輸入地名或地址">
+    </label>
+    <p id="placeHint" class="place-hint" aria-live="polite"></p>
+    <ul id="placeList" class="place-list"></ul>
+    <p id="placeAttr" class="attribution" hidden><img class="g-logo" src="/google-logo.png" alt="Google"></p>
+    <button type="button" id="useGps" class="gps-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      <span id="useGpsText">用我現在的位置</span>
+    </button>
+    <p class="place-hint">手動選的地點不會被記住，下次打開會回到你現在的位置（Google 規定不能把座標存在手機裡）。</p>
+  </div>
+</dialog>
+
 <script>
 (() => {
   'use strict';
@@ -434,6 +477,8 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
 
   const state = {
     pos: null,
+    manual: null,       // 手動選的地點 { name, lat, lng }，只放在記憶體，不存手機
+    fetchSeq: 0,
     locStatus: 'idle',
     loading: false,
     error: '',
@@ -498,6 +543,10 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   }
 
   // ---------- 篩選 ----------
+  function areaLabel() {
+    const rl = radiusLabel(store.radius);
+    return state.locStatus === 'manual' && state.manual ? `${state.manual.name} ${rl}` : rl;
+  }
   function catNames() { return store.cats.map((k) => CAT_LABEL[k]).join('、'); }
   // ignoreCats：算每個類別按鈕上的數字時，先不套用類別篩選
   // ignorePay：判斷是不是「只抽 LINE Pay」把店都擋掉了
@@ -572,25 +621,26 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     switch (state.locStatus) {
       case 'locating': return { label: '定位中', text: '定位中…' };
       case 'ok': return { label: '目前位置' };
+      case 'manual': return { label: `${state.manual ? state.manual.name : '指定地點'}附近`, manual: true };
       case 'insecure': return {
-        label: '無法定位', text: '網址要 https 開頭才能定位', noRetry: true,
+        error: true, label: '無法定位', text: '網址要 https 開頭才能定位', noRetry: true,
         notice: '請確認網址是 https:// 開頭，不是 http:// 或 192.168 開頭的本機網址。'
       };
       case 'inapp': return {
-        label: '無法定位', text: `在${where}裡面沒辦法定位`, fix: true, noRetry: true,
+        error: true, label: '無法定位', text: `在${where}裡面沒辦法定位`, fix: true, noRetry: true,
         notice: IN_APP === 'LINE'
           ? `按「用瀏覽器打開」，或複製網址到 ${BROWSER} 貼上。`
           : `請複製網址，打開 ${BROWSER} 貼上就能用。也可以按右上角的選單，選「用瀏覽器開啟」。`
       };
       case 'unsupported': return {
-        label: '無法定位', text: '這個瀏覽器不能定位', fix: true, noRetry: true,
+        error: true, label: '無法定位', text: '這個瀏覽器不能定位', fix: true, noRetry: true,
         notice: `請複製網址，改用手機內建的 ${BROWSER} 打開。`
           + (IS_IOS ? '\n已經在用 Safari 的話，請檢查：\n' + IOS_STEPS : '')
       };
-      case 'denied': return { label: '沒有定位權限', text: '還沒拿到定位權限', notice: deniedTip() };
-      case 'unavailable': return { label: '定位失敗', text: '手機的定位好像沒開', notice: offTip() };
+      case 'denied': return { error: true, label: '沒有定位權限', text: '還沒拿到定位權限', notice: deniedTip() };
+      case 'unavailable': return { error: true, label: '定位失敗', text: '手機的定位好像沒開', notice: offTip() };
       case 'timeout': return {
-        label: '定位失敗', text: '定位太久了',
+        error: true, label: '定位失敗', text: '定位太久了',
         notice: '可能在室內訊號比較弱。到窗邊或室外，再按上面的「再試一次」。'
       };
       default: return { label: '還沒定位' };
@@ -620,26 +670,141 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     copyUrl.timer = setTimeout(() => { b.textContent = '複製網址'; }, 4000);
   }
 
+  // ---------- 手動改位置 ----------
+  // 同一次搜尋共用一個 sessionToken，Google 會把「打字建議＋查座標」算成一組（見 src/worker.js）
+  const place = { token: '', seq: 0, timer: 0, list: [] };
+  const PLACE_TIP = '打兩個字以上就會出現建議';
+
+  function newToken() {
+    try { if (crypto.randomUUID) return crypto.randomUUID(); } catch (e) { /* 舊瀏覽器或非 https */ }
+    let t = '';
+    for (let i = 0; i < 32; i += 1) t += Math.floor(Math.random() * 16).toString(16);
+    return t;
+  }
+  function openPlace() {
+    place.token = newToken();
+    place.seq += 1;
+    place.list = [];
+    clearTimeout(place.timer);
+    $('placeInput').value = '';
+    $('placeHint').textContent = PLACE_TIP;
+    $('useGpsText').textContent = state.manual ? '改回我現在的位置' : '重新抓我現在的位置';
+    renderPlaceList();
+    $('placeSheet').showModal();
+    $('placeInput').focus();
+  }
+  function renderPlaceList() {
+    const ul = $('placeList');
+    ul.replaceChildren();
+    place.list.forEach((sug) => {
+      const b = el('button');
+      b.type = 'button';
+      b.append(el('span', 'p-main', sug.main));
+      if (sug.secondary) b.append(el('span', 'p-sub', sug.secondary));
+      b.addEventListener('click', () => pickPlace(sug));
+      const li = el('li');
+      li.append(b);
+      ul.append(li);
+    });
+    $('placeAttr').hidden = place.list.length === 0;   // 顯示 Google 的建議時要標出處
+  }
+  function onPlaceInput() {
+    clearTimeout(place.timer);
+    const q = $('placeInput').value.trim();
+    if (q.length < 2) {
+      place.seq += 1;
+      place.list = [];
+      renderPlaceList();
+      $('placeHint').textContent = PLACE_TIP;
+      return;
+    }
+    place.timer = setTimeout(() => suggest(q), 350);   // 停手 0.35 秒才問，省額度
+  }
+  async function suggest(q) {
+    const seq = ++place.seq;
+    $('placeHint').textContent = '找找看…';
+    const body = { input: q.slice(0, 60), sessionToken: place.token };
+    if (state.pos) {
+      body.lat = Number(state.pos.lat.toFixed(3));
+      body.lng = Number(state.pos.lng.toFixed(3));
+    }
+    try {
+      const res = await fetch('/api/autocomplete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (seq !== place.seq) return;   // 已經打了新的字，舊結果不要
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      place.list = Array.isArray(data.suggestions) ? data.suggestions : [];
+      renderPlaceList();
+      $('placeHint').textContent = place.list.length
+        ? '點一個地點，就從那附近抽'
+        : '找不到符合的地點，換個說法試試，例如加上縣市或區名';
+    } catch (e) {
+      if (seq !== place.seq) return;
+      console.error('地點建議失敗：', e);
+      place.list = [];
+      renderPlaceList();
+      $('placeHint').textContent = '地點建議暫時抓不到。檢查一下網路，等一下再打字試試。';
+    }
+  }
+  async function pickPlace(sug) {
+    const seq = ++place.seq;
+    clearTimeout(place.timer);
+    $('placeHint').textContent = `正在找「${sug.main}」的位置…`;
+    try {
+      const res = await fetch('/api/place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: sug.id, sessionToken: place.token })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (seq !== place.seq) return;
+      if (!res.ok || !Number.isFinite(data.lat) || !Number.isFinite(data.lng)) throw new Error(data.error || `HTTP ${res.status}`);
+      place.token = newToken();   // 這次搜尋結束
+      state.manual = { name: sug.main, lat: data.lat, lng: data.lng };
+      state.pos = { lat: data.lat, lng: data.lng };
+      state.locStatus = 'manual';
+      $('placeSheet').close();
+      show('home');
+      loadShops();
+    } catch (e) {
+      if (seq !== place.seq) return;
+      console.error('查座標失敗：', e);
+      $('placeHint').textContent = '這個地點的位置暫時抓不到，換一個試試。';
+    }
+  }
+
   // ---------- 定位與抓資料 ----------
   function locate() {
+    if (state.manual) {
+      state.manual = null;
+      state.pos = null;
+    }
     return new Promise((resolve) => {
       const fail = (status) => {
         state.locStatus = status;
         renderHome();
         resolve(false);
       };
+      // 定位中途改成手動選地點的話，GPS 晚回來的結果就不要用
+      const stillWaiting = () => state.locStatus === 'locating';
       if (window.isSecureContext === false) return fail('insecure');
       if (!navigator.geolocation) return fail(IN_APP ? 'inapp' : 'unsupported');
       state.locStatus = 'locating';
       renderHome();
       navigator.geolocation.getCurrentPosition(
         (p) => {
+          if (!stillWaiting()) return resolve(false);
           state.pos = { lat: p.coords.latitude, lng: p.coords.longitude };
           state.locStatus = 'ok';
           renderHome();
           resolve(true);
         },
         (err) => {
+          if (!stillWaiting()) return resolve(false);
           if (IN_APP) fail('inapp');
           else fail({ 1: 'denied', 2: 'unavailable', 3: 'timeout' }[err.code] || 'unavailable');
         },
@@ -660,6 +825,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     if (!state.pos) return;
     const { lat, lng } = state.pos;
     const radius = store.radius;
+    const seq = ++state.fetchSeq;   // 換地點很快時，只用最後一次查詢的結果
     state.loading = true;
     state.error = '';
     renderHome();
@@ -670,15 +836,19 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
         body: JSON.stringify({ lat: Number(lat.toFixed(5)), lng: Number(lng.toFixed(5)), radius })
       });
       const data = await res.json().catch(() => ({}));
+      if (seq !== state.fetchSeq) return;
       if (!res.ok) throw new Error(data.detail || data.error || `HTTP ${res.status}`);
       state.shops = Array.isArray(data.shops) ? data.shops : [];
       state.fetched = { at: Date.now(), radius, lat, lng };
     } catch (e) {
+      if (seq !== state.fetchSeq) return;
       console.error('抓店家失敗：', e);
       state.error = '店家資料暫時抓不到，等一下再試試';
     } finally {
-      state.loading = false;
-      renderHome();
+      if (seq === state.fetchSeq) {
+        state.loading = false;
+        renderHome();
+      }
     }
   }
 
@@ -743,8 +913,9 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   function renderHome() {
     const help = locHelp();
     $('locText').textContent = help.label;
-    $('relocate').hidden = state.locStatus === 'locating' || !!help.noRetry;
-    $('relocate').textContent = state.locStatus === 'ok' ? '重新定位' : '再試一次';
+    $('placeBtn').classList.toggle('is-manual', !!help.manual);
+    $('placeBtn').setAttribute('aria-label', `${help.label}，點一下換地點`);
+    $('relocate').hidden = !(help.error && !help.noRetry);
 
     document.querySelectorAll('[data-radius]').forEach((b) => {
       b.setAttribute('aria-pressed', String(Number(b.dataset.radius) === store.radius));
@@ -780,7 +951,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     else if (state.error) text = state.error;
     else if (state.fetched && state.fetched.radius === store.radius) {
       const n = eligiblePool().length;
-      const rl = radiusLabel(store.radius);
+      const rl = areaLabel();
       const cn = catNames();
       if (n === 0) text = `${rl}內沒有可以抽的${cn || '店'}`;
       else if (cn) text = `${mealLabel()}，${rl}內的${cn}有 ${n} 家可以抽`;
@@ -790,8 +961,10 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     $('notice').textContent = notice;
     $('notice').hidden = !notice;
     $('notice').classList.toggle('steps', notice.includes('\n'));
-    $('locFix').hidden = !help.fix;
-    $('openExternal').hidden = IN_APP !== 'LINE';
+    $('locFix').hidden = !help.error;
+    $('copyUrl').hidden = !help.fix;
+    $('urlText').hidden = !help.fix;
+    $('openExternal').hidden = !(help.fix && IN_APP === 'LINE');
 
     $('filterSummary').textContent = filterSummary();
     $('excludedRow').hidden = state.excluded.size === 0;
@@ -902,7 +1075,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   }
 
   function renderEmpty() {
-    const rl = radiusLabel(store.radius);
+    const rl = areaLabel();
     const cn = catNames();
     $('emptyTitle').textContent = `${rl}內沒有可以抽的${cn || '店'}`;
     let why = '附近現在剛好沒有開著的店。';
@@ -995,6 +1168,23 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   $('openExternal').href = APP_URL + '?openExternalBrowser=1';   // LINE 看到這個參數會改用手機的瀏覽器開
   $('copyUrl').addEventListener('click', copyUrl);
   $('relocate').addEventListener('click', async () => {
+    if (await locate()) loadShops();
+  });
+  $('placeBtn').addEventListener('click', openPlace);
+  $('manualFromError').addEventListener('click', openPlace);
+  $('placeClose').addEventListener('click', () => $('placeSheet').close());
+  $('placeSheet').addEventListener('click', (e) => { if (e.target === $('placeSheet')) $('placeSheet').close(); });
+  // 注音還在選字時不要去問 Google（會浪費額度），選完字再問
+  $('placeInput').addEventListener('input', (e) => { if (!e.isComposing) onPlaceInput(); });
+  $('placeInput').addEventListener('compositionend', onPlaceInput);
+  $('placeInput').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    if (place.list.length) pickPlace(place.list[0]);
+  });
+  $('useGps').addEventListener('click', async () => {
+    $('placeSheet').close();
+    show('home');
     if (await locate()) loadShops();
   });
   $('clearExcluded').addEventListener('click', () => {
