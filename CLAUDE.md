@@ -29,7 +29,7 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 
 - **不要自己執行 `npm run deploy` 或 `wrangler secret put`**。先說明要做什麼，等 Sky 同意，或請 Sky 自己執行。
 - **合併進 `main` 就等於部署**：Cloudflare Workers Builds 已連到這個 repo，`main` 一有新 commit 就自動部署到正式網站。合併前要 Sky 明確同意。
-- 平常改動推到工作分支、開 PR 給 Sky 確認。PR 上的「Workers Builds」檢查是分支預覽打包，目前會失敗（原因要看 Cloudflare 後台的 build log，本機照同樣步驟打包是成功的），不影響正式部署。
+- 平常改動推到工作分支、開 PR 給 Sky 確認。PR 上的「Workers Builds」檢查是分支預覽打包（`npx wrangler preview`，需要 `wrangler.toml` 的 `[previews]` 區塊）。預覽不會繼承正式環境的金鑰，所以預覽網址查不到店家，這是正常的。
 - **不要讀取、印出或修改 `.dev.vars`**，也不要把金鑰寫進任何檔案或 commit。
 - 改 `src/worker.js` 後要跑 `npm test`，新功能順手補測試。
 - 改動前先用兩三句話說計畫，大改動分小步做。
@@ -78,5 +78,4 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 
 1. **補 Google 標誌圖**：要 Sky 從 Google 官方下載 Google Maps 標誌（開發環境連不到 Google 網域，也不能自己畫）。
 2. **手動改位置**：定位不準或想查別處時用。注意 Geocoding 另外計費，做之前先算成本給 Sky。
-3. 分支預覽打包失敗：請 Sky 提供 Cloudflare build log，或在 Cloudflare 關掉非正式分支的打包。
-4. 之後再說：LINE LIFF 多人投票、LINE Pay 記號跨手機／和朋友共用（需要 D1 之類的資料庫，只存 place_id）、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。
+3. 之後再說：LINE LIFF 多人投票、LINE Pay 記號跨手機／和朋友共用（需要 D1 之類的資料庫，只存 place_id）、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。

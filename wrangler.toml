@@ -6,3 +6,7 @@ compatibility_date = "2025-09-01"
 [assets]
 directory = "./public"
 binding = "ASSETS"
+
+# 分支預覽：Cloudflare 打包 main 以外的分支時會跑 npx wrangler preview，需要這個區塊，空的就好。
+# 預覽不會繼承正式環境的 GOOGLE_MAPS_KEY，所以預覽網址查不到店家，也不會用到 Google 額度。
+[previews]
