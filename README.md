@@ -42,11 +42,11 @@ npm run deploy
 部署完會給你一個 `https://chou-shi-qian.你的帳號.workers.dev` 網址，用手機打開、允許定位就能用。
 iPhone 在 Safari 按「分享 → 加入主畫面」，用起來就像 App。
 
-## 三、Google 標誌（上線前補上）
+## 三、Google 標誌（已放好）
 
 沒有搭配 Google 地圖顯示店家資料時，Google 規定畫面上要放 **Google Maps 標誌**，版面不夠時才可以用「Google Maps」文字代替。
 到 Google 的「Places API 政策與出處」（Policies and attributions for Places API）說明頁，下載淺色背景用的官方 Google Maps 標誌，存成 `public/google-logo.png` 再重新部署。
-不要自己重畫或改顏色。沒放之前，畫面會先用「Google Maps」文字代替。
+不要自己重畫或改顏色。目前放的是官方「沒外框、灰色」版本；素色背景用這個，照片或地圖上才用有外框的版本。圖不見時，畫面會先用「Google Maps」文字代替。
 
 ## 在自己電腦上測試
 

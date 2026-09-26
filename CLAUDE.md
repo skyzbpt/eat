@@ -39,7 +39,7 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 
 1. **金鑰只能在 Worker 裡**。前端永遠透過 `/api/*` 取資料。
 2. **不能快取店家內容**。除了 place_id，Places 回傳的內容不能預先抓取、快取或存起來。Worker 不做快取；前端只在同一次開啟時重複使用剛拿到的清單（15 分鐘或移動超過 150 公尺就重抓）。localStorage 只存 place_id 和時間戳。
-3. **要顯示 Google 標誌**。沒有搭配 Google 地圖顯示店家資料的畫面，都要有 Google 標誌（`public/google-logo.png`，缺圖時前端會先用文字代替）。
+3. **要顯示 Google 標誌**。沒有搭配 Google 地圖顯示店家資料的畫面，都要有 Google Maps 標誌（`public/google-logo.png`，官方「沒外框、灰色」版本，原檔不可修改；缺圖時前端會先用文字代替）。素色背景用沒外框的，照片或地圖上才用有外框的。
 4. **照片要標出處**。顯示 `authorAttributions` 裡的作者名稱和連結。
 5. **注意欄位計費等級**。`FIELD_MASK` 目前最高到 Nearby Search Enterprise。不要加 `reviews`、`delivery`、`dineIn`、`editorialSummary` 這類欄位，會跳到更貴的 Enterprise + Atmosphere。
 6. **注意查詢次數**。每次抓店家 = `QUERIES` 的組數次計費（目前 3 次）。Enterprise 每月前 1,000 次免費。新增查詢前要先算成本告訴 Sky。
@@ -73,9 +73,8 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 
 ## 目前進度
 
-已完成：部署上線（Cloudflare Workers Builds，合併進 main 自動部署）、定位、營業中篩選、快打烊提醒、單抽／抽三選一、評分與評論數門檻、7 天內吃過不抽（按導航才算吃過）、黑名單、重抽次數文案、照片與出處、Worker 測試、類別篩選、PWA（manifest 和圖示）、定位問題自動判斷（App 內建瀏覽器、非 https、沒給權限、定位沒開、逾時，依 iPhone／Android 給設定步驟）與「複製網址」「用瀏覽器打開（LINE）」按鈕、手動改位置（右上角位置按鈕／定位失敗時的「改用手動輸入地點」→ 打字建議 → 選地點；不記住座標）、LINE Pay 自己做記號（籤卡外的開關＋「只抽可以用 LINE Pay 的店」篩選；LINE Pay 和 Google 都沒有公開的「哪些店收 LINE Pay」資料，所以只能自己記）。
+已完成：Google Maps 標誌、部署上線（Cloudflare Workers Builds，合併進 main 自動部署）、定位、營業中篩選、快打烊提醒、單抽／抽三選一、評分與評論數門檻、7 天內吃過不抽（按導航才算吃過）、黑名單、重抽次數文案、照片與出處、Worker 測試、類別篩選、PWA（manifest 和圖示）、定位問題自動判斷（App 內建瀏覽器、非 https、沒給權限、定位沒開、逾時，依 iPhone／Android 給設定步驟）與「複製網址」「用瀏覽器打開（LINE）」按鈕、手動改位置（右上角位置按鈕／定位失敗時的「改用手動輸入地點」→ 打字建議 → 選地點；不記住座標）、LINE Pay 自己做記號（籤卡外的開關＋「只抽可以用 LINE Pay 的店」篩選；LINE Pay 和 Google 都沒有公開的「哪些店收 LINE Pay」資料，所以只能自己記）。
 
 還沒做（依優先順序）：
 
-1. **補 Google 標誌圖**：要 Sky 從 Google 官方下載 Google Maps 標誌（開發環境連不到 Google 網域，也不能自己畫）。
-2. 之後再說：LINE LIFF 多人投票、LINE Pay 記號跨手機／和朋友共用（需要 D1 之類的資料庫，只存 place_id）、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。
+1. 之後再說：LINE LIFF 多人投票、LINE Pay 記號跨手機／和朋友共用（需要 D1 之類的資料庫，只存 place_id）、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。
