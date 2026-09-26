@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EEF7FD">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="抽食籤">
+<title>抽食籤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+:root {
+  --sky: #8ECDF5;
+  --sky-soft: #D6EDFB;
+  --mist: #EEF7FD;
+  --line: #BFE3FA;
+  --hair: #E3F0F9;
+  --deep: #135A8C;
+  --deep-hover: #0C3F63;
+  --ink: #0F2A3F;
+  --muted: #4F6B80;
+  --off: #7F98A9;
+  --card: #FFFFFF;
+  --warn-bg: #FFF1DE;
+  --warn: #8A4A06;
+  --display: "Huninn", "Noto Sans TC", "PingFang TC", sans-serif;
+  --body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { color-scheme: light; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--mist); color: var(--ink); font-family: var(--body); line-height: 1.5; }
+button { font: inherit; color: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid var(--deep); outline-offset: 3px; }
+[hidden] { display: none !important; }
+
+.app { max-width: 440px; margin: 0 auto; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+.screen {
+  min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 20px; padding: 28px 24px;
+}
+#result, #three { padding-top: 12px; gap: 16px; }
+
+.home-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.2; }
+.loc { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 14px; color: var(--muted); }
+.loc svg { flex-shrink: 0; }
+.link-btn { min-height: 44px; padding: 0 6px; background: none; border: 0; color: var(--deep); font-size: 14px; font-weight: 500; cursor: pointer; }
+
+.group { display: flex; flex-direction: column; gap: 10px; }
+.group-label { margin: 0; font-size: 14px; color: var(--muted); }
+.chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.chip { min-height: 44px; border-radius: 22px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); font-size: 15px; font-weight: 500; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--deep); border-color: var(--deep); color: #FFFFFF; }
+.seg { display: grid; gap: 4px; padding: 4px; border-radius: 26px; background: var(--card); }
+.seg-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.seg-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.seg button { min-height: 44px; border-radius: 22px; border: 0; background: transparent; color: var(--muted); font-size: 15px; font-weight: 500; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--sky); color: var(--ink); font-weight: 700; }
+
+.stage { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 12px 0; }
+.draw {
+  width: 236px; height: 236px; padding: 0 24px; border-radius: 50%; border: 0;
+  background: var(--sky); color: var(--ink); box-shadow: 0 0 0 12px var(--sky-soft);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  cursor: pointer; transition: transform .15s ease;
+}
+.draw:active:not(:disabled) { transform: scale(.97); }
+.draw:disabled { cursor: progress; }
+.cup { display: flex; }
+.cup.shaking { animation: shake .22s ease-in-out infinite; transform-origin: 50% 85%; }
+@keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
+.draw-label {
+  max-width: 188px; font-family: var(--display); font-size: 25px; line-height: 1.3; text-align: center;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.count { margin: 0; font-size: 15px; color: var(--muted); text-align: center; }
+.notice { margin: -12px 0 0; max-width: 300px; font-size: 14px; line-height: 1.6; color: var(--muted); text-align: center; }
+
+.bottom { display: flex; flex-direction: column; gap: 4px; }
+.filter-card { background: var(--card); border-radius: 20px; padding: 14px 14px 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.filter-title { margin: 0; font-size: 15px; font-weight: 700; }
+.filter-summary { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+.soft-btn { flex-shrink: 0; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 0; background: var(--mist); color: var(--deep); font-size: 15px; font-weight: 500; cursor: pointer; }
+.soft-btn:disabled { color: var(--off); cursor: default; }
+.excluded-row { display: flex; align-items: center; justify-content: space-between; padding-left: 18px; font-size: 14px; color: var(--muted); }
+
+.topbar { display: flex; align-items: center; }
+.back { min-height: 44px; display: flex; align-items: center; gap: 2px; padding: 0 8px 0 0; background: none; border: 0; color: var(--deep); font-size: 15px; font-weight: 500; cursor: pointer; }
+
+.slip { position: relative; background: var(--card); border-radius: 24px; padding: 34px 22px 16px; display: flex; flex-direction: column; gap: 16px; }
+.slip-hole { position: absolute; top: 12px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--mist); box-shadow: inset 0 0 0 1.5px var(--line); }
+.lead { margin: 0; font-size: 14px; color: var(--muted); }
+.shop-name { margin: 6px 0 0; font-family: var(--display); font-weight: 400; font-size: 32px; line-height: 1.25; overflow-wrap: anywhere; }
+.meta { margin: 6px 0 0; font-size: 15px; color: var(--muted); }
+.photo { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.photo img, .photo-empty { width: 100%; height: 176px; border-radius: 16px; object-fit: cover; background: var(--sky-soft); }
+.photo-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--deep); font-size: 14px; }
+.credit { font-size: 12px; color: var(--muted); }
+.credit a { color: var(--deep); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-top: 16px; border-top: 1px solid var(--hair); }
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat-label { font-size: 13px; color: var(--muted); }
+.stat-value { font-size: 20px; font-weight: 700; }
+.stat-sub { font-size: 12px; color: var(--muted); }
+.badge-warn { align-self: flex-start; margin: 0; padding: 6px 12px; border-radius: 14px; background: var(--warn-bg); color: var(--warn); font-size: 14px; font-weight: 500; }
+.attribution { margin: 0; display: flex; align-items: center; justify-content: flex-end; min-height: 20px; }
+.g-logo { height: 16px; width: auto; }
+.g-text { font-size: 12px; font-weight: 500; color: var(--muted); }
+
+.spacer { flex-grow: 1; }
+.row { display: flex; gap: 10px; }
+.row-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.btn-primary {
+  flex-grow: 1; min-height: 52px; padding: 0 20px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 26px; border: 0; background: var(--deep); color: #FFFFFF; font-size: 17px; font-weight: 700; text-decoration: none; cursor: pointer;
+}
+.btn-primary:hover { background: var(--deep-hover); color: #FFFFFF; }
+.btn-icon { flex-shrink: 0; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--line); background: var(--card); color: var(--deep); }
+.btn-outline { min-height: 48px; padding: 0 16px; border-radius: 24px; border: 1.5px solid var(--line); background: var(--card); color: var(--deep); font-size: 16px; font-weight: 500; cursor: pointer; }
+.btn-ghost { min-height: 48px; padding: 0 16px; border-radius: 24px; border: 0; background: transparent; color: var(--muted); font-size: 16px; font-weight: 500; cursor: pointer; }
+.quiet-link { align-self: center; min-height: 44px; padding: 0 12px; background: none; border: 0; color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+.title { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.3; }
+.trio { display: flex; flex-direction: column; gap: 12px; }
+.trio-card { background: var(--card); border-radius: 20px; padding: 16px 16px 16px 20px; display: flex; align-items: center; gap: 12px; }
+.trio-info { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.trio-name { margin: 0; font-family: var(--display); font-size: 21px; line-height: 1.3; overflow-wrap: anywhere; }
+.trio-meta { margin: 0; font-size: 14px; color: var(--muted); }
+.pick-btn { flex-shrink: 0; min-height: 44px; padding: 0 16px; border-radius: 22px; border: 0; background: var(--sky); color: var(--ink); font-size: 15px; font-weight: 700; cursor: pointer; }
+
+#empty { align-items: center; justify-content: center; text-align: center; }
+.empty-art { width: 150px; height: 150px; border-radius: 50%; background: var(--sky-soft); display: flex; align-items: center; justify-content: center; }
+.muted { margin: 0; max-width: 290px; font-size: 15px; line-height: 1.6; color: var(--muted); }
+.stack { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+dialog { width: 100%; max-width: 440px; max-height: 90dvh; margin: auto auto 0; padding: 0; border: 0; border-radius: 24px 24px 0 0; background: var(--mist); color: var(--ink); }
+dialog::backdrop { background: rgba(15, 42, 63, .35); }
+.sheet { padding: 20px 20px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 24px; }
+.card-list { background: var(--card); border-radius: 20px; padding: 4px 18px; }
+.toggle { width: 100%; min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; background: none; border: 0; border-top: 1px solid var(--hair); text-align: left; cursor: pointer; }
+.toggle:first-child { border-top: 0; }
+.t-text { display: flex; flex-direction: column; gap: 2px; }
+.t-title { margin: 0; font-size: 15px; font-weight: 500; }
+.t-sub { margin: 0; font-size: 13px; color: var(--muted); }
+.track { position: relative; flex-shrink: 0; width: 46px; height: 28px; border-radius: 14px; background: var(--off); transition: background .15s; }
+.knob { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF; transition: transform .15s; }
+.toggle[aria-pressed="true"] .track { background: var(--deep); }
+.toggle[aria-pressed="true"] .knob { transform: translateX(18px); }
+.black-row { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--hair); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cup.shaking { animation: none; }
+  .draw, .track, .knob { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <main id="home" class="screen">
+    <header class="home-head">
+      <h1 class="brand">抽食籤</h1>
+      <div class="loc">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21c-4-4.2-7-7.6-7-11a7 7 0 0 1 14 0c0 3.4-3 6.8-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span id="locText">還沒定位</span>
+        <button type="button" id="relocate" class="link-btn">重新定位</button>
+      </div>
+    </header>
+
+    <div class="group">
+      <p class="group-label" id="radiusLabel">範圍</p>
+      <div class="chips" role="group" aria-labelledby="radiusLabel">
+        <button type="button" class="chip" data-radius="500">500 公尺</button>
+        <button type="button" class="chip" data-radius="1000">1 公里</button>
+        <button type="button" class="chip" data-radius="2000">2 公里</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <p class="group-label" id="modeLabel">抽法</p>
+      <div class="seg seg-2" role="group" aria-labelledby="modeLabel">
+        <button type="button" data-mode="one">單抽</button>
+        <button type="button" data-mode="three">抽三選一</button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <button type="button" id="drawBtn" class="draw">
+        <span id="cup" class="cup" aria-hidden="true">
+          <svg width="88" height="88" viewBox="0 0 96 96" fill="none" stroke="#135A8C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M33 18l5 32"/><path d="M43 10l2 40"/><path d="M55 14l-3 36"/><path d="M65 22l-5 28"/><path d="M24 46h48l-6 40H30z" fill="#EEF7FD"/><path d="M28 60h40"/></svg>
+        </span>
+        <span id="drawLabel" class="draw-label">抽一家</span>
+      </button>
+      <p id="countText" class="count" aria-live="polite"></p>
+      <p id="notice" class="notice" hidden></p>
+    </div>
+
+    <div class="bottom">
+      <div class="filter-card">
+        <div>
+          <p class="filter-title">篩選條件</p>
+          <p id="filterSummary" class="filter-summary"></p>
+        </div>
+        <button type="button" id="openSettings" class="soft-btn">調整</button>
+      </div>
+      <div id="excludedRow" class="excluded-row" hidden>
+        <span id="excludedText"></span>
+        <button type="button" id="clearExcluded" class="link-btn">清空</button>
+      </div>
+    </div>
+  </main>
+
+  <section id="result" class="screen" hidden aria-labelledby="rName">
+    <div class="topbar">
+      <button type="button" class="back" data-go="home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        <span>回首頁</span>
+      </button>
+    </div>
+
+    <article class="slip">
+      <span class="slip-hole" aria-hidden="true"></span>
+      <div>
+        <p id="resultLead" class="lead">今天吃這家</p>
+        <h2 id="rName" class="shop-name"></h2>
+        <p id="rMeta" class="meta"></p>
+      </div>
+      <figure class="photo">
+        <img id="rPhoto" alt="" hidden>
+        <div id="rPhotoEmpty" class="photo-empty">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v18"/><path d="M4 3v5a3 3 0 0 0 6 0V3"/><path d="M17 21V3c-2 1.5-3 4-3 7v3h3"/></svg>
+          <span>這家還沒有照片</span>
+        </div>
+        <figcaption id="rCredit" class="credit" hidden></figcaption>
+      </figure>
+      <div class="stats">
+        <div class="stat"><span class="stat-label">評分</span><span id="rRating" class="stat-value"></span><span id="rReviews" class="stat-sub"></span></div>
+        <div class="stat"><span class="stat-label">步行</span><span id="rWalk" class="stat-value"></span><span id="rDist" class="stat-sub"></span></div>
+        <div class="stat"><span id="rCloseLabel" class="stat-label">營業到</span><span id="rClose" class="stat-value"></span><span id="rCloseSub" class="stat-sub"></span></div>
+      </div>
+      <p id="rSoon" class="badge-warn" hidden></p>
+      <p class="attribution"><img class="g-logo" src="/google-logo.png" alt="Google"></p>
+    </article>
+
+    <div class="spacer"></div>
+
+    <div class="row">
+      <a id="navBtn" class="btn-primary" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>
+        <span>導航過去</span>
+      </a>
+      <a id="callBtn" class="btn-icon" aria-label="打電話給店家">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+      </a>
+    </div>
+    <div class="row-2">
+      <button type="button" id="redraw" class="btn-outline">再抽一次</button>
+      <button type="button" id="reject" class="btn-ghost">不要這家</button>
+    </div>
+    <button type="button" id="blockForever" class="quiet-link">以後都不要抽到這家</button>
+  </section>
+
+  <section id="three" class="screen" hidden>
+    <div class="topbar">
+      <button type="button" class="back" data-go="home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        <span>回首頁</span>
+      </button>
+    </div>
+    <h2 id="trioTitle" class="title">抽到這三家，挑一家吧</h2>
+    <div id="trioList" class="trio"></div>
+    <p class="attribution"><img class="g-logo" src="/google-logo.png" alt="Google"></p>
+    <div class="spacer"></div>
+    <button type="button" id="rejectTrio" class="btn-outline">三家都不要，重抽</button>
+  </section>
+
+  <section id="empty" class="screen" hidden>
+    <div class="empty-art">
+      <svg width="84" height="84" viewBox="0 0 96 96" fill="none" stroke="#135A8C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 36h48l-6 40H30z" fill="#EEF7FD"/><path d="M28 50h40"/></svg>
+    </div>
+    <h2 id="emptyTitle" class="title"></h2>
+    <p id="emptyText" class="muted"></p>
+    <div class="stack">
+      <button type="button" id="expandBtn" class="btn-primary">擴大到 2 公里</button>
+      <button type="button" id="clearAll" class="btn-outline">清空這次排除的店</button>
+      <button type="button" id="emptySettings" class="btn-outline">放寬篩選條件</button>
+      <button type="button" class="btn-ghost" data-go="home">回首頁</button>
+    </div>
+  </section>
+
+</div>
+
+<dialog id="settings" aria-labelledby="settingsTitle">
+  <form method="dialog" class="sheet">
+    <div class="sheet-head">
+      <h2 id="settingsTitle">篩選</h2>
+      <button type="submit" class="link-btn" value="done">完成</button>
+    </div>
+
+    <div class="group">
+      <p class="group-label" id="ratingLabel">最低評分</p>
+      <div class="seg seg-4" role="group" aria-labelledby="ratingLabel">
+        <button type="button" data-rating="0">不限</button>
+        <button type="button" data-rating="3.5">3.5</button>
+        <button type="button" data-rating="4">4.0</button>
+        <button type="button" data-rating="4.5">4.5</button>
+      </div>
+    </div>
+
+    <div class="card-list">
+      <button type="button" class="toggle" data-key="fewReviews">
+        <span class="t-text"><span class="t-title">評論少於 30 則的不抽</span><span class="t-sub">避開只有幾則評論就滿分的店</span></span>
+        <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      </button>
+      <button type="button" class="toggle" data-key="skipSoon">
+        <span class="t-text"><span class="t-title">快打烊的店不抽</span><span class="t-sub">打烊前 30 分鐘內的店不列入</span></span>
+        <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      </button>
+      <button type="button" class="toggle" data-key="skipRecent">
+        <span class="t-text"><span class="t-title">最近吃過的先不抽</span><span class="t-sub">按過導航的店，7 天內不會再抽到</span></span>
+        <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      </button>
+      <div class="black-row">
+        <div>
+          <p class="t-title">黑名單</p>
+          <p id="blackText" class="t-sub"></p>
+        </div>
+        <button type="button" id="clearBlack" class="soft-btn">清空</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORE_KEY = 'chou-shi-qian:v1';
+  const REFRESH_MS = 15 * 60 * 1000;   // 同一個地方 15 分鐘內重抽不再打 API
+  const MOVE_LIMIT_M = 150;            // 走超過 150 公尺就重新抓
+  const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
+  const DEFAULTS = {
+    radius: 1000,
+    mode: 'one',
+    settings: { minRating: 4, fewReviews: true, skipSoon: true, skipRecent: true },
+    blacklist: [],
+    recent: {}
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- 本機儲存：只存設定和 place_id ----------
+  function loadStore() {
+    const base = JSON.parse(JSON.stringify(DEFAULTS));
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return base;
+      const data = JSON.parse(raw);
+      return {
+        radius: [500, 1000, 2000].includes(data.radius) ? data.radius : base.radius,
+        mode: data.mode === 'three' ? 'three' : 'one',
+        settings: Object.assign(base.settings, data.settings || {}),
+        blacklist: Array.isArray(data.blacklist) ? data.blacklist : [],
+        recent: data.recent && typeof data.recent === 'object' ? data.recent : {}
+      };
+    } catch (e) {
+      return base;
+    }
+  }
+  function saveStore() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* 無痕模式存不了就算了 */ }
+  }
+
+  const store = loadStore();
+  const cutoff = Date.now() - RECENT_MS;
+  Object.keys(store.recent).forEach((id) => { if (store.recent[id] < cutoff) delete store.recent[id]; });
+
+  const state = {
+    pos: null,
+    locStatus: 'idle',
+    loading: false,
+    error: '',
+    shops: [],
+    fetched: null,
+    excluded: new Set(),
+    current: null,
+    trio: [],
+    draws: 0,
+    drawing: false
+  };
+
+  // ---------- 小工具 ----------
+  function radiusLabel(r) { return r === 500 ? '500 公尺' : r === 1000 ? '1 公里' : '2 公里'; }
+  function mealLabel() {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 10) return '早餐時間';
+    if (h >= 10 && h < 14) return '午餐時間';
+    if (h >= 14 && h < 17) return '下午茶時間';
+    if (h >= 17 && h < 21) return '晚餐時間';
+    return '宵夜時間';
+  }
+  function priceLabel(level) {
+    return {
+      PRICE_LEVEL_FREE: '免費',
+      PRICE_LEVEL_INEXPENSIVE: '平價',
+      PRICE_LEVEL_MODERATE: '中等價位',
+      PRICE_LEVEL_EXPENSIVE: '偏高價位',
+      PRICE_LEVEL_VERY_EXPENSIVE: '高價位'
+    }[level] || '';
+  }
+  function walkMinutes(m) { return Math.max(1, Math.round((m * 1.3) / 75)); }
+  function distText(m) { return m >= 1000 ? `約 ${(m / 1000).toFixed(1)} 公里` : `約 ${Math.round(m / 10) * 10} 公尺`; }
+  function minutesToClose(shop) {
+    if (!shop.closeAt) return null;
+    const t = Date.parse(shop.closeAt);
+    return Number.isFinite(t) ? Math.round((t - Date.now()) / 60000) : null;
+  }
+  function clock(iso) {
+    return new Date(iso).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  function haversine(a, b, c, d) {
+    const R = 6371000, r = (x) => (x * Math.PI) / 180;
+    const s = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+  }
+  function shuffle(list) {
+    for (let i = list.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  }
+  function reducedMotion() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+  }
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  // ---------- 篩選 ----------
+  function eligiblePool() {
+    const s = store.settings;
+    const recentCut = Date.now() - RECENT_MS;
+    return state.shops.filter((shop) => {
+      if (shop.distance > store.radius) return false;
+      if (state.excluded.has(shop.id)) return false;
+      if (store.blacklist.includes(shop.id)) return false;
+      if (s.skipRecent && store.recent[shop.id] > recentCut) return false;
+      if (s.minRating > 0 && (shop.rating === null || shop.rating < s.minRating)) return false;
+      if (s.fewReviews && shop.reviews < 30) return false;
+      const m = minutesToClose(shop);
+      if (m !== null && m <= 0) return false;
+      if (s.skipSoon && m !== null && m < 30) return false;
+      return true;
+    });
+  }
+  function filterSummary() {
+    const s = store.settings;
+    const parts = [s.minRating > 0 ? `${Number(s.minRating).toFixed(1)} 分以上` : '評分不限'];
+    if (s.fewReviews) parts.push('評論 30 則以上');
+    if (s.skipSoon) parts.push('快打烊不抽');
+    if (s.skipRecent) parts.push('7 天內吃過不抽');
+    return parts.join('、');
+  }
+
+  // ---------- 定位與抓資料 ----------
+  function locate() {
+    return new Promise((resolve) => {
+      if (!('geolocation' in navigator)) {
+        state.locStatus = 'unsupported';
+        renderHome();
+        resolve(false);
+        return;
+      }
+      state.locStatus = 'locating';
+      renderHome();
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          state.pos = { lat: p.coords.latitude, lng: p.coords.longitude };
+          state.locStatus = 'ok';
+          renderHome();
+          resolve(true);
+        },
+        (err) => {
+          state.locStatus = err.code === 1 ? 'denied' : 'failed';
+          renderHome();
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      );
+    });
+  }
+
+  function needsFetch() {
+    const f = state.fetched;
+    if (!f || !state.pos) return true;
+    if (f.radius !== store.radius) return true;
+    if (Date.now() - f.at > REFRESH_MS) return true;
+    return haversine(f.lat, f.lng, state.pos.lat, state.pos.lng) > MOVE_LIMIT_M;
+  }
+
+  async function loadShops() {
+    if (!state.pos) return;
+    const { lat, lng } = state.pos;
+    const radius = store.radius;
+    state.loading = true;
+    state.error = '';
+    renderHome();
+    try {
+      const res = await fetch('/api/nearby', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: Number(lat.toFixed(5)), lng: Number(lng.toFixed(5)), radius })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || data.error || `HTTP ${res.status}`);
+      state.shops = Array.isArray(data.shops) ? data.shops : [];
+      state.fetched = { at: Date.now(), radius, lat, lng };
+    } catch (e) {
+      console.error('抓店家失敗：', e);
+      state.error = '店家資料暫時抓不到，等一下再試試';
+    } finally {
+      state.loading = false;
+      renderHome();
+    }
+  }
+
+  // ---------- 抽籤 ----------
+  async function draw() {
+    if (state.drawing || state.loading) return;
+    if (!state.pos) {
+      show('home');
+      const ok = await locate();
+      if (!ok) return;
+    }
+    if (needsFetch()) {
+      show('home');
+      await loadShops();
+    }
+    if (state.error) { show('home'); return; }
+
+    const pool = eligiblePool();
+    if (pool.length === 0) { renderEmpty(); show('empty'); return; }
+
+    const picks = shuffle(pool.slice()).slice(0, store.mode === 'three' ? 3 : 1);
+    state.draws += 1;
+
+    const finish = () => {
+      state.drawing = false;
+      if (picks.length > 1) {
+        state.trio = picks;
+        renderThree();
+        show('three');
+      } else {
+        state.current = picks[0];
+        renderResult();
+        show('result');
+      }
+    };
+
+    if (reducedMotion()) { finish(); return; }
+
+    show('home');
+    state.drawing = true;
+    renderHome();
+    $('drawLabel').textContent = pool[0].name;
+    let ticks = 0;
+    const timer = setInterval(() => {
+      ticks += 1;
+      if (ticks >= 14) {
+        clearInterval(timer);
+        finish();
+        return;
+      }
+      $('drawLabel').textContent = pool[Math.floor(Math.random() * pool.length)].name;
+    }, 85);
+  }
+
+  // ---------- 畫面 ----------
+  function show(name) {
+    ['home', 'result', 'three', 'empty'].forEach((id) => { $(id).hidden = id !== name; });
+    window.scrollTo(0, 0);
+    if (name === 'home') renderHome();
+  }
+
+  function renderHome() {
+    const locText = {
+      idle: '還沒定位', locating: '定位中', ok: '目前位置',
+      denied: '沒有定位權限', failed: '定位失敗', unsupported: '無法定位'
+    }[state.locStatus];
+    $('locText').textContent = locText;
+    $('relocate').hidden = state.locStatus === 'locating' || state.locStatus === 'unsupported';
+    $('relocate').textContent = state.locStatus === 'ok' ? '重新定位' : '再試一次';
+
+    document.querySelectorAll('[data-radius]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(Number(b.dataset.radius) === store.radius));
+    });
+    document.querySelectorAll('[data-mode]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.mode === store.mode));
+    });
+
+    const idle = store.mode === 'three' ? '抽三家' : '抽一家';
+    const btn = $('drawBtn');
+    btn.disabled = state.drawing || state.loading || state.locStatus === 'locating';
+    btn.setAttribute('aria-label', idle);
+    $('cup').classList.toggle('shaking', state.drawing);
+    if (!state.drawing) $('drawLabel').textContent = idle;
+
+    let text = '按下去就幫你抽';
+    let notice = '';
+    if (state.locStatus === 'locating') text = '定位中…';
+    else if (state.locStatus === 'denied') {
+      text = '需要定位才能找附近的店';
+      notice = '請在瀏覽器的網站設定裡允許使用位置，再按「再試一次」。';
+    } else if (state.locStatus === 'failed') {
+      text = '抓不到你的位置';
+      notice = '到窗邊或室外再試一次，定位會比較準。';
+    } else if (state.locStatus === 'unsupported') {
+      text = '這個瀏覽器不能定位';
+      notice = '換成手機內建的 Safari 或 Chrome 打開試試。';
+    } else if (state.loading) text = '正在找附近開著的店…';
+    else if (state.error) text = state.error;
+    else if (state.fetched && state.fetched.radius === store.radius) {
+      const n = eligiblePool().length;
+      const rl = radiusLabel(store.radius);
+      text = n === 0 ? `${rl}內沒有可以抽的店` : `${mealLabel()}，${rl}內有 ${n} 家可以抽`;
+    }
+    $('countText').textContent = text;
+    $('notice').textContent = notice;
+    $('notice').hidden = !notice;
+
+    $('filterSummary').textContent = filterSummary();
+    $('excludedRow').hidden = state.excluded.size === 0;
+    $('excludedText').textContent = `這次已排除 ${state.excluded.size} 家`;
+  }
+
+  function renderResult() {
+    const s = state.current;
+    if (!s) return;
+    const d = state.draws;
+    $('resultLead').textContent = d <= 1 ? '今天吃這家' : d === 2 ? '重抽了一次，換這家' : `抽到第 ${d} 次了，就吃這家吧`;
+    $('rName').textContent = s.name;
+    $('rMeta').textContent = [s.type, priceLabel(s.priceLevel)].filter(Boolean).join('，') || '餐廳';
+
+    const img = $('rPhoto');
+    const credit = $('rCredit');
+    credit.replaceChildren();
+    if (s.photo && s.photo.name) {
+      img.hidden = false;
+      $('rPhotoEmpty').hidden = true;
+      img.alt = `${s.name}的照片`;
+      img.src = '/api/photo?name=' + encodeURIComponent(s.photo.name);
+      if (s.photo.author) {
+        credit.append('照片：');
+        if (s.photo.authorUri) {
+          const a = el('a', '', s.photo.author);
+          a.href = s.photo.authorUri;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          credit.append(a);
+        } else {
+          credit.append(s.photo.author);
+        }
+        credit.hidden = false;
+      } else {
+        credit.hidden = true;
+      }
+    } else {
+      img.hidden = true;
+      img.removeAttribute('src');
+      $('rPhotoEmpty').hidden = false;
+      credit.hidden = true;
+    }
+
+    $('rRating').textContent = s.rating !== null ? s.rating.toFixed(1) : '—';
+    $('rReviews').textContent = s.reviews ? `${s.reviews.toLocaleString('zh-TW')} 則評論` : '還沒有評論';
+    $('rWalk').textContent = `${walkMinutes(s.distance)} 分鐘`;
+    $('rDist').textContent = distText(s.distance);
+
+    const m = minutesToClose(s);
+    if (s.closeAt) {
+      $('rCloseLabel').textContent = '營業到';
+      $('rClose').textContent = clock(s.closeAt);
+      $('rCloseSub').textContent = '現在營業中';
+    } else {
+      $('rCloseLabel').textContent = '營業';
+      $('rClose').textContent = '營業中';
+      $('rCloseSub').textContent = '沒有打烊時間';
+    }
+    $('rSoon').hidden = !(m !== null && m < 60);
+    $('rSoon').textContent = `${m} 分鐘後打烊`;
+
+    $('navBtn').href = 'https://www.google.com/maps/dir/?api=1&travelmode=walking'
+      + '&destination=' + encodeURIComponent(s.name)
+      + '&destination_place_id=' + encodeURIComponent(s.id);
+
+    const phone = (s.phone || '').replace(/[^\d+]/g, '');
+    $('callBtn').hidden = !phone;
+    if (phone) $('callBtn').href = 'tel:' + phone;
+  }
+
+  function renderThree() {
+    const list = $('trioList');
+    list.replaceChildren();
+    const word = state.trio.length === 3 ? '三' : '兩';
+    $('trioTitle').textContent = `抽到這${word}家，挑一家吧`;
+    $('rejectTrio').textContent = `${word}家都不要，重抽`;
+    state.trio.forEach((s) => {
+      const card = el('div', 'trio-card');
+      const info = el('div', 'trio-info');
+      info.append(el('p', 'trio-name', s.name));
+      const meta = [s.type, priceLabel(s.priceLevel)].filter(Boolean).join('，');
+      if (meta) info.append(el('p', 'trio-meta', meta));
+      const rating = s.rating !== null ? `${s.rating.toFixed(1)} 分，` : '';
+      info.append(el('p', 'trio-meta', `${rating}步行 ${walkMinutes(s.distance)} 分鐘`));
+      const m = minutesToClose(s);
+      if (m !== null && m < 60) info.append(el('p', 'badge-warn', `${m} 分鐘後打烊`));
+
+      const btn = el('button', 'pick-btn', '就這家');
+      btn.type = 'button';
+      btn.setAttribute('aria-label', `就吃${s.name}`);
+      btn.addEventListener('click', () => {
+        state.current = s;
+        renderResult();
+        show('result');
+      });
+      card.append(info, btn);
+      list.append(card);
+    });
+  }
+
+  function renderEmpty() {
+    const rl = radiusLabel(store.radius);
+    $('emptyTitle').textContent = `${rl}內沒有可以抽的店`;
+    let why = '附近現在剛好沒有開著的店。';
+    if (state.excluded.size > 0) why = '這次開著的店都被你排除了，或是被篩選條件擋掉了。';
+    else if (state.shops.length > 0) why = '附近開著的店都被篩選條件擋掉了，放寬一點再抽看看。';
+    $('emptyText').textContent = why;
+    $('expandBtn').hidden = store.radius >= 2000;
+    $('expandBtn').textContent = store.radius < 1000 ? '擴大到 1 公里' : '擴大到 2 公里';
+    $('clearAll').hidden = state.excluded.size === 0;
+  }
+
+  function renderSettings() {
+    document.querySelectorAll('[data-rating]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(Number(b.dataset.rating) === Number(store.settings.minRating)));
+    });
+    document.querySelectorAll('.toggle[data-key]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(!!store.settings[b.dataset.key]));
+    });
+    const n = store.blacklist.length;
+    $('blackText').textContent = n ? `${n} 家店永遠不會被抽到` : '還沒有店在黑名單裡';
+    $('clearBlack').disabled = n === 0;
+  }
+
+  // Google 標誌：放了 /google-logo.png 就顯示圖，沒放就先用文字頂著
+  document.querySelectorAll('.g-logo').forEach((img) => {
+    const fallback = () => img.replaceWith(el('span', 'g-text', 'Google Maps'));
+    if (img.complete && img.naturalWidth === 0) fallback();
+    else img.addEventListener('error', fallback, { once: true });
+  });
+
+  $('rPhoto').addEventListener('error', () => {
+    $('rPhoto').hidden = true;
+    $('rPhotoEmpty').hidden = false;
+    $('rCredit').hidden = true;
+  });
+
+  // ---------- 事件 ----------
+  function setRadius(r) {
+    if (store.radius === r) return;
+    store.radius = r;
+    saveStore();
+    renderHome();
+    if (state.pos) loadShops();
+  }
+
+  document.querySelectorAll('[data-radius]').forEach((b) => {
+    b.addEventListener('click', () => setRadius(Number(b.dataset.radius)));
+  });
+  document.querySelectorAll('[data-mode]').forEach((b) => {
+    b.addEventListener('click', () => {
+      store.mode = b.dataset.mode;
+      saveStore();
+      renderHome();
+    });
+  });
+  document.querySelectorAll('[data-go="home"]').forEach((b) => {
+    b.addEventListener('click', () => show('home'));
+  });
+
+  $('drawBtn').addEventListener('click', draw);
+  $('relocate').addEventListener('click', async () => {
+    if (await locate()) loadShops();
+  });
+  $('clearExcluded').addEventListener('click', () => {
+    state.excluded.clear();
+    renderHome();
+  });
+
+  $('redraw').addEventListener('click', draw);
+  $('reject').addEventListener('click', () => {
+    if (state.current) state.excluded.add(state.current.id);
+    draw();
+  });
+  $('blockForever').addEventListener('click', () => {
+    if (state.current && !store.blacklist.includes(state.current.id)) {
+      store.blacklist.push(state.current.id);
+      saveStore();
+    }
+    draw();
+  });
+  $('navBtn').addEventListener('click', () => {
+    if (!state.current) return;
+    store.recent[state.current.id] = Date.now();
+    saveStore();
+  });
+  $('rejectTrio').addEventListener('click', () => {
+    state.trio.forEach((s) => state.excluded.add(s.id));
+    draw();
+  });
+
+  $('expandBtn').addEventListener('click', () => {
+    show('home');
+    setRadius(store.radius < 1000 ? 1000 : 2000);
+  });
+  $('clearAll').addEventListener('click', () => {
+    state.excluded.clear();
+    show('home');
+  });
+
+  const dialog = $('settings');
+  function openSettings() {
+    renderSettings();
+    dialog.showModal();
+  }
+  $('openSettings').addEventListener('click', openSettings);
+  $('emptySettings').addEventListener('click', openSettings);
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+  dialog.addEventListener('close', () => {
+    if (!$('empty').hidden) renderEmpty();
+    renderHome();
+  });
+  document.querySelectorAll('[data-rating]').forEach((b) => {
+    b.addEventListener('click', () => {
+      store.settings.minRating = Number(b.dataset.rating);
+      saveStore();
+      renderSettings();
+    });
+  });
+  document.querySelectorAll('.toggle[data-key]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const key = b.dataset.key;
+      store.settings[key] = !store.settings[key];
+      saveStore();
+      renderSettings();
+    });
+  });
+  $('clearBlack').addEventListener('click', () => {
+    store.blacklist = [];
+    saveStore();
+    renderSettings();
+  });
+
+  // ---------- 開始 ----------
+  renderHome();
+  locate().then((ok) => { if (ok) loadShops(); });
+})();
+</script>
+</body>
+</html>

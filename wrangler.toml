@@ -1,0 +1,8 @@
+name = "chou-shi-qian"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+# public/ 裡的 index.html 會直接當網站首頁
+[assets]
+directory = "./public"
+binding = "ASSETS"

@@ -1,0 +1,2 @@
+# 複製成 .dev.vars 再填入金鑰，只給 npm run dev 用。.dev.vars 不會進 git。
+GOOGLE_MAPS_KEY=這裡貼上你的金鑰
