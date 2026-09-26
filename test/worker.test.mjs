@@ -41,6 +41,13 @@ beforeEach(() => {
     if (String(url).includes('/media')) {
       return new Response(JSON.stringify({ photoUri: 'https://lh3.googleusercontent.com/abc' }));
     }
+    if (String(url).includes('places:autocomplete')) {
+      const p = (i) => ({ placePrediction: { placeId: 'ChIJplace' + i, text: { text: '台北車站' + i }, structuredFormat: { mainText: { text: '台北車站' + i }, secondaryText: { text: '台北市中正區' } } } });
+      return new Response(JSON.stringify({ suggestions: [p(1), { queryPrediction: { text: { text: '台北車站美食' } } }, p(2), p(3), p(4), p(5), p(6)] }));
+    }
+    if (/\/v1\/places\/[A-Za-z0-9_-]+\?/.test(String(url))) {
+      return new Response(JSON.stringify({ location: { latitude: 25.0478, longitude: 121.517 } }));
+    }
     throw new Error('unexpected fetch ' + url);
   };
 });
@@ -149,4 +156,75 @@ test('類別：麵包店不算麵', () => {
 test('類別：沒有線索就不分類', () => {
   assert.deepEqual(categorize({ primaryType: 'restaurant', displayName: { text: '好好吃' } }), []);
   assert.deepEqual(categorize({}), []);
+});
+
+function post(path, body, headers = {}) {
+  return new Request('https://app.example' + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Sec-Fetch-Site': 'same-origin', ...headers },
+    body: JSON.stringify(body)
+  });
+}
+const TOKEN = '3f1c2a9e-7b4d-4e2a-9c1f-0a1b2c3d4e5f';
+
+test('地點建議：金鑰放 header，帶 sessionToken 和位置偏好，最多 5 筆', async () => {
+  const res = await worker.fetch(post('/api/autocomplete', { input: '台北車', sessionToken: TOKEN, lat: 25.03, lng: 121.56 }), env);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.suggestions.length, 5);
+  assert.deepEqual(data.suggestions[0], { id: 'ChIJplace1', main: '台北車站1', secondary: '台北市中正區' });
+  const sent = JSON.parse(calls[0].init.body);
+  assert.equal(calls[0].init.headers['X-Goog-Api-Key'], 'test-key');
+  assert.ok(!calls[0].url.includes('test-key'));
+  assert.equal(sent.input, '台北車');
+  assert.equal(sent.sessionToken, TOKEN);
+  assert.equal(sent.locationBias.circle.center.latitude, 25.03);
+});
+
+test('地點建議：字太少或太多不打 Google', async () => {
+  for (const input of ['台', 'x'.repeat(61), '  ', 123]) {
+    const res = await worker.fetch(post('/api/autocomplete', { input, sessionToken: TOKEN }), env);
+    assert.equal(res.status, 400);
+  }
+  assert.equal(calls.length, 0);
+});
+
+test('地點建議：sessionToken 格式不對回 400', async () => {
+  const res = await worker.fetch(post('/api/autocomplete', { input: '台北車站', sessionToken: 'bad token!' }), env);
+  assert.equal(res.status, 400);
+  assert.equal(calls.length, 0);
+});
+
+test('地點建議：只接受 POST，也擋其他網站', async () => {
+  assert.equal((await worker.fetch(new Request('https://app.example/api/autocomplete'), env)).status, 405);
+  const res = await worker.fetch(post('/api/autocomplete', { input: '台北車站', sessionToken: TOKEN }, { 'Sec-Fetch-Site': 'cross-site' }), env);
+  assert.equal(res.status, 403);
+});
+
+test('地點建議：Google 出錯回 502', async () => {
+  globalThis.fetch = async () => new Response('quota', { status: 429 });
+  const res = await worker.fetch(post('/api/autocomplete', { input: '台北車站', sessionToken: TOKEN }), env);
+  assert.equal(res.status, 502);
+});
+
+test('查座標：只拿 location 欄位（Essentials），帶 sessionToken', async () => {
+  const res = await worker.fetch(post('/api/place', { id: 'ChIJplace1', sessionToken: TOKEN }), env);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { lat: 25.0478, lng: 121.517 });
+  assert.equal(calls[0].init.headers['X-Goog-FieldMask'], 'location', '多拿 displayName 之類的欄位會變成 Pro 計費');
+  assert.ok(calls[0].url.startsWith('https://places.googleapis.com/v1/places/ChIJplace1?'));
+  assert.ok(calls[0].url.includes('sessionToken=' + TOKEN));
+});
+
+test('查座標：地點 id 格式不對回 400，不打 Google', async () => {
+  for (const id of ['../../evil', 'a/b', '', 'short']) {
+    const res = await worker.fetch(post('/api/place', { id, sessionToken: TOKEN }), env);
+    assert.equal(res.status, 400);
+  }
+  assert.equal(calls.length, 0);
+});
+
+test('地點建議和查座標：沒設金鑰回 500', async () => {
+  assert.equal((await worker.fetch(post('/api/autocomplete', { input: '台北車站', sessionToken: TOKEN }), {})).status, 500);
+  assert.equal((await worker.fetch(post('/api/place', { id: 'ChIJplace1', sessionToken: TOKEN }), {})).status, 500);
 });
