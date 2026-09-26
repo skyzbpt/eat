@@ -29,7 +29,7 @@ chou-shi-qian/
 
 ## 二、部署到 Cloudflare（約 5 分鐘）
 
-電腦需要先裝 Node.js。在這個資料夾打開終端機：
+電腦需要先裝 **Node.js 22 以上**（到 nodejs.org 下載 LTS 版本；終端機打 `node -v` 可以看版本）。在這個資料夾打開終端機：
 
 ```bash
 npm install
