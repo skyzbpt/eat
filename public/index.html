@@ -89,6 +89,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 .count { margin: 0; font-size: 15px; color: var(--muted); text-align: center; }
 .notice { margin: -12px 0 0; max-width: 300px; font-size: 14px; line-height: 1.6; color: var(--muted); text-align: center; }
+.loc-fix { width: 100%; max-width: 300px; margin-top: -8px; display: flex; flex-direction: column; gap: 10px; }
+.url-text { margin: 0; font-size: 13px; color: var(--muted); text-align: center; word-break: break-all; -webkit-user-select: all; user-select: all; }
 
 .bottom { display: flex; flex-direction: column; gap: 4px; }
 .filter-card { background: var(--card); border-radius: 20px; padding: 14px 14px 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -214,6 +216,11 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
       </button>
       <p id="countText" class="count" aria-live="polite"></p>
       <p id="notice" class="notice" hidden></p>
+      <div id="locFix" class="loc-fix" hidden>
+        <a id="openExternal" class="btn-primary" hidden>用瀏覽器打開</a>
+        <button type="button" id="copyUrl" class="btn-outline">複製網址</button>
+        <p id="urlText" class="url-text"></p>
+      </div>
     </div>
 
     <div class="bottom">
@@ -499,15 +506,103 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     return parts.join('、');
   }
 
+  // ---------- 定位問題判斷 ----------
+  const UA = navigator.userAgent || '';
+  const IS_IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const IS_ANDROID = /Android/.test(UA);
+  const BROWSER = IS_ANDROID ? 'Chrome' : 'Safari';
+  const APP_URL = location.origin + '/';
+  const IS_STANDALONE = navigator.standalone === true
+    || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);   // 從主畫面圖示打開
+
+  // LINE、Facebook、IG 這類 App 內建的瀏覽器常常不能定位
+  function inAppName() {
+    if (/\bLine\//i.test(UA)) return 'LINE';
+    if (/FBAN|FBAV|FB_IAB|FBIOS|Messenger/i.test(UA)) return 'Facebook';
+    if (/Instagram/i.test(UA)) return 'Instagram';
+    if (/MicroMessenger/i.test(UA)) return '微信';
+    if (IS_STANDALONE) return '';                                // 加到主畫面的抽食籤本身不算
+    if (IS_IOS && !/Safari\//.test(UA)) return 'App';          // iPhone 上沒有 Safari 字樣，通常是 App 內建瀏覽器
+    if (IS_ANDROID && /; wv\)/.test(UA)) return 'App';
+    return '';
+  }
+  const IN_APP = inAppName();
+
+  function deniedTip() {
+    if (IS_IOS && /CriOS/.test(UA)) return '到手機「設定 → Chrome → 位置」選「使用 App 期間」，再回來按上面的「再試一次」。';
+    if (IS_IOS && IS_STANDALONE) return '到手機「設定 → 隱私權與安全性 → 定位服務 → Safari 網站」選「使用 App 期間」，再回來按上面的「再試一次」。';
+    if (IS_IOS) return '到手機「設定 → 隱私權與安全性 → 定位服務 → Safari 網站」選「使用 App 期間」。回到這頁，按網址列左邊的「大小」→「網站設定」，位置選「允許」，再按上面的「再試一次」。';
+    if (IS_ANDROID) return '按網址列左邊的圖示 →「權限」，把「位置」打開，再按上面的「再試一次」。';
+    return '請在瀏覽器的網站設定裡允許使用位置，再按上面的「再試一次」。';
+  }
+  function offTip() {
+    if (IS_IOS) return '到手機「設定 → 隱私權與安全性 → 定位服務」把總開關打開，再按上面的「再試一次」。已經開了的話，到窗邊或室外再試。';
+    if (IS_ANDROID) return '從螢幕上方往下滑，打開「位置」，再按上面的「再試一次」。已經開了的話，到窗邊或室外再試。';
+    return '請確認裝置的定位有打開，再按上面的「再試一次」。';
+  }
+  // 依定位狀態決定：右上角小字、數量那行、下方說明、要不要顯示複製網址、要不要顯示「再試一次」
+  function locHelp() {
+    const where = IN_APP && IN_APP !== 'App' ? ` ${IN_APP} ` : '這個 App ';
+    switch (state.locStatus) {
+      case 'locating': return { label: '定位中', text: '定位中…' };
+      case 'ok': return { label: '目前位置' };
+      case 'insecure': return {
+        label: '無法定位', text: '網址要 https 開頭才能定位', noRetry: true,
+        notice: '請確認網址是 https:// 開頭，不是 http:// 或 192.168 開頭的本機網址。'
+      };
+      case 'inapp': return {
+        label: '無法定位', text: `在${where}裡面沒辦法定位`, fix: true, noRetry: true,
+        notice: IN_APP === 'LINE'
+          ? `按「用瀏覽器打開」，或複製網址到 ${BROWSER} 貼上。`
+          : `請複製網址，打開 ${BROWSER} 貼上就能用。也可以按右上角的選單，選「用瀏覽器開啟」。`
+      };
+      case 'unsupported': return {
+        label: '無法定位', text: '這個瀏覽器不能定位', fix: true, noRetry: true,
+        notice: `請複製網址，改用手機內建的 ${BROWSER} 打開。`
+      };
+      case 'denied': return { label: '沒有定位權限', text: '還沒拿到定位權限', notice: deniedTip() };
+      case 'unavailable': return { label: '定位失敗', text: '手機的定位好像沒開', notice: offTip() };
+      case 'timeout': return {
+        label: '定位失敗', text: '定位太久了',
+        notice: '可能在室內訊號比較弱。到窗邊或室外，再按上面的「再試一次」。'
+      };
+      default: return { label: '還沒定位' };
+    }
+  }
+
+  async function copyUrl() {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(APP_URL);
+      ok = true;
+    } catch (e) { /* App 內建瀏覽器或舊瀏覽器不給用，改用下面的舊方法 */ }
+    if (!ok) {
+      const ta = el('textarea');
+      ta.value = APP_URL;
+      ta.readOnly = true;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.append(ta);
+      ta.select();
+      ta.setSelectionRange(0, APP_URL.length);
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      ta.remove();
+    }
+    const b = $('copyUrl');
+    b.textContent = ok ? `已複製，去 ${BROWSER} 貼上` : '沒複製成功，請長按下面的網址';
+    clearTimeout(copyUrl.timer);
+    copyUrl.timer = setTimeout(() => { b.textContent = '複製網址'; }, 4000);
+  }
+
   // ---------- 定位與抓資料 ----------
   function locate() {
     return new Promise((resolve) => {
-      if (!('geolocation' in navigator)) {
-        state.locStatus = 'unsupported';
+      const fail = (status) => {
+        state.locStatus = status;
         renderHome();
         resolve(false);
-        return;
-      }
+      };
+      if (window.isSecureContext === false) return fail('insecure');
+      if (!navigator.geolocation) return fail(IN_APP ? 'inapp' : 'unsupported');
       state.locStatus = 'locating';
       renderHome();
       navigator.geolocation.getCurrentPosition(
@@ -518,9 +613,8 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
           resolve(true);
         },
         (err) => {
-          state.locStatus = err.code === 1 ? 'denied' : 'failed';
-          renderHome();
-          resolve(false);
+          if (IN_APP) fail('inapp');
+          else fail({ 1: 'denied', 2: 'unavailable', 3: 'timeout' }[err.code] || 'unavailable');
         },
         { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
       );
@@ -620,12 +714,9 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   }
 
   function renderHome() {
-    const locText = {
-      idle: '還沒定位', locating: '定位中', ok: '目前位置',
-      denied: '沒有定位權限', failed: '定位失敗', unsupported: '無法定位'
-    }[state.locStatus];
-    $('locText').textContent = locText;
-    $('relocate').hidden = state.locStatus === 'locating' || state.locStatus === 'unsupported';
+    const help = locHelp();
+    $('locText').textContent = help.label;
+    $('relocate').hidden = state.locStatus === 'locating' || !!help.noRetry;
     $('relocate').textContent = state.locStatus === 'ok' ? '重新定位' : '再試一次';
 
     document.querySelectorAll('[data-radius]').forEach((b) => {
@@ -655,16 +746,9 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
 
     let text = '按下去就幫你抽';
     let notice = '';
-    if (state.locStatus === 'locating') text = '定位中…';
-    else if (state.locStatus === 'denied') {
-      text = '需要定位才能找附近的店';
-      notice = '請在瀏覽器的網站設定裡允許使用位置，再按「再試一次」。';
-    } else if (state.locStatus === 'failed') {
-      text = '抓不到你的位置';
-      notice = '到窗邊或室外再試一次，定位會比較準。';
-    } else if (state.locStatus === 'unsupported') {
-      text = '這個瀏覽器不能定位';
-      notice = '換成手機內建的 Safari 或 Chrome 打開試試。';
+    if (help.text) {
+      text = help.text;
+      notice = help.notice || '';
     } else if (state.loading) text = '正在找附近開著的店…';
     else if (state.error) text = state.error;
     else if (state.fetched && state.fetched.radius === store.radius) {
@@ -678,6 +762,8 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     $('countText').textContent = text;
     $('notice').textContent = notice;
     $('notice').hidden = !notice;
+    $('locFix').hidden = !help.fix;
+    $('openExternal').hidden = IN_APP !== 'LINE';
 
     $('filterSummary').textContent = filterSummary();
     $('excludedRow').hidden = state.excluded.size === 0;
@@ -858,6 +944,9 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   });
 
   $('drawBtn').addEventListener('click', draw);
+  $('urlText').textContent = APP_URL;
+  $('openExternal').href = APP_URL + '?openExternalBrowser=1';   // LINE 看到這個參數會改用手機的瀏覽器開
+  $('copyUrl').addEventListener('click', copyUrl);
   $('relocate').addEventListener('click', async () => {
     if (await locate()) loadShops();
   });
