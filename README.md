@@ -8,7 +8,9 @@ chou-shi-qian/
 ├── package.json       指令：npm run dev / deploy / test
 ├── wrangler.toml      Cloudflare 設定
 ├── src/worker.js      後端：幫你向 Google 查店家，金鑰藏在這裡
+├── src/categories.js  幫店家分類別（飯、麵、小吃…）
 ├── public/index.html  前端：你在手機上看到的畫面
+├── public/icons/      加入主畫面用的籤筒圖示
 └── test/              後端測試（用假資料，不花錢）
 ```
 
