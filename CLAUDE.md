@@ -18,7 +18,7 @@
 ## 常用指令
 
 ```bash
-npm install          # 裝 wrangler
+npm install          # 裝 wrangler（需要 Node.js 22 以上，見 .node-version）
 npm test             # 跑測試（改 worker.js 之後一定要跑）
 npm run dev          # 本機測試，需要 .dev.vars 裡有金鑰
 npm run deploy       # 部署到 Cloudflare
@@ -28,6 +28,8 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 ## 工作規則
 
 - **不要自己執行 `npm run deploy` 或 `wrangler secret put`**。先說明要做什麼，等 Sky 同意，或請 Sky 自己執行。
+- **合併進 `main` 就等於部署**：Cloudflare Workers Builds 已連到這個 repo，`main` 一有新 commit 就自動部署到正式網站。合併前要 Sky 明確同意。
+- 平常改動推到工作分支、開 PR 給 Sky 確認。PR 上的「Workers Builds」檢查是分支預覽打包（`npx wrangler preview`，需要 `wrangler.toml` 的 `[previews]` 區塊）。預覽不會繼承正式環境的金鑰，所以預覽網址查不到店家，這是正常的。
 - **不要讀取、印出或修改 `.dev.vars`**，也不要把金鑰寫進任何檔案或 commit。
 - 改 `src/worker.js` 後要跑 `npm test`，新功能順手補測試。
 - 改動前先用兩三句話說計畫，大改動分小步做。
@@ -70,11 +72,10 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 
 ## 目前進度
 
-已完成：定位、營業中篩選、快打烊提醒、單抽／抽三選一、評分與評論數門檻、7 天內吃過不抽（按導航才算吃過）、黑名單、重抽次數文案、照片與出處、Worker 測試、類別篩選、PWA（manifest 和圖示）、定位問題自動判斷（App 內建瀏覽器、非 https、沒給權限、定位沒開、逾時，依 iPhone／Android 給設定步驟）與「複製網址」「用瀏覽器打開（LINE）」按鈕、LINE Pay 自己做記號（籤卡外的開關＋「只抽可以用 LINE Pay 的店」篩選；LINE Pay 和 Google 都沒有公開的「哪些店收 LINE Pay」資料，所以只能自己記）。
+已完成：部署上線（Cloudflare Workers Builds，合併進 main 自動部署）、定位、營業中篩選、快打烊提醒、單抽／抽三選一、評分與評論數門檻、7 天內吃過不抽（按導航才算吃過）、黑名單、重抽次數文案、照片與出處、Worker 測試、類別篩選、PWA（manifest 和圖示）、定位問題自動判斷（App 內建瀏覽器、非 https、沒給權限、定位沒開、逾時，依 iPhone／Android 給設定步驟）與「複製網址」「用瀏覽器打開（LINE）」按鈕、LINE Pay 自己做記號（籤卡外的開關＋「只抽可以用 LINE Pay 的店」篩選；LINE Pay 和 Google 都沒有公開的「哪些店收 LINE Pay」資料，所以只能自己記）。
 
 還沒做（依優先順序）：
 
-1. **部署上線**：陪 Sky 走完 README 的 Google 金鑰設定、每日配額上限、預算提醒、部署。
-2. **補 Google 標誌圖**：要 Sky 從 Google 官方下載 Google Maps 標誌（開發環境連不到 Google 網域，也不能自己畫）。
-3. **手動改位置**：定位不準或想查別處時用。注意 Geocoding 另外計費，做之前先算成本給 Sky。
-4. 之後再說：LINE LIFF 多人投票、LINE Pay 記號跨手機／和朋友共用（需要 D1 之類的資料庫，只存 place_id）、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。
+1. **補 Google 標誌圖**：要 Sky 從 Google 官方下載 Google Maps 標誌（開發環境連不到 Google 網域，也不能自己畫）。
+2. **手動改位置**：定位不準或想查別處時用。注意 Geocoding 另外計費，做之前先算成本給 Sky。
+3. 之後再說：LINE LIFF 多人投票、LINE Pay 記號跨手機／和朋友共用（需要 D1 之類的資料庫，只存 place_id）、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。
