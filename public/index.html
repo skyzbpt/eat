@@ -6,7 +6,11 @@
 <meta name="theme-color" content="#EEF7FD">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="抽食籤">
+<meta name="mobile-web-app-capable" content="yes">
 <title>抽食籤</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&family=Noto+Sans+TC:wght@400;500;700&display=swap">
@@ -54,6 +58,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .chip { min-height: 44px; border-radius: 22px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); font-size: 15px; font-weight: 500; cursor: pointer; }
 .chip[aria-pressed="true"] { background: var(--deep); border-color: var(--deep); color: #FFFFFF; }
+.cat-row { display: flex; gap: 8px; overflow-x: auto; margin: -6px -24px; padding: 6px 24px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.cat-row::-webkit-scrollbar { display: none; }
+.cat-row .chip { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; }
+.chip-n { font-size: 13px; font-weight: 400; color: var(--muted); }
+.chip-n:empty { display: none; }
+.chip[aria-pressed="true"] .chip-n { color: rgba(255, 255, 255, .85); }
+.hint { font-size: 13px; color: var(--off); }
 .seg { display: grid; gap: 4px; padding: 4px; border-radius: 26px; background: var(--card); }
 .seg-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .seg-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -182,6 +193,11 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     </div>
 
     <div class="group">
+      <p class="group-label" id="catLabel">想吃什麼 <span class="hint">可以複選</span></p>
+      <div id="catRow" class="cat-row" role="group" aria-labelledby="catLabel"></div>
+    </div>
+
+    <div class="group">
       <p class="group-label" id="modeLabel">抽法</p>
       <div class="seg seg-2" role="group" aria-labelledby="modeLabel">
         <button type="button" data-mode="one">單抽</button>
@@ -287,6 +303,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     <p id="emptyText" class="muted"></p>
     <div class="stack">
       <button type="button" id="expandBtn" class="btn-primary">擴大到 2 公里</button>
+      <button type="button" id="anyCat" class="btn-outline">改成不限類別</button>
       <button type="button" id="clearAll" class="btn-outline">清空這次排除的店</button>
       <button type="button" id="emptySettings" class="btn-outline">放寬篩選條件</button>
       <button type="button" class="btn-ghost" data-go="home">回首頁</button>
@@ -344,9 +361,16 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   const REFRESH_MS = 15 * 60 * 1000;   // 同一個地方 15 分鐘內重抽不再打 API
   const MOVE_LIMIT_M = 150;            // 走超過 150 公尺就重新抓
   const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
+  // 類別 key 要和 src/categories.js 一致
+  const CATEGORIES = [
+    ['rice', '飯'], ['noodle', '麵'], ['snack', '小吃'], ['bento', '便當'],
+    ['foreign', '異國'], ['brunch', '早午餐'], ['cafe', '咖啡甜點']
+  ];
+  const CAT_LABEL = Object.fromEntries(CATEGORIES);
   const DEFAULTS = {
     radius: 1000,
     mode: 'one',
+    cats: [],
     settings: { minRating: 4, fewReviews: true, skipSoon: true, skipRecent: true },
     blacklist: [],
     recent: {}
@@ -364,6 +388,7 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
       return {
         radius: [500, 1000, 2000].includes(data.radius) ? data.radius : base.radius,
         mode: data.mode === 'three' ? 'three' : 'one',
+        cats: Array.isArray(data.cats) ? data.cats.filter((k) => k in CAT_LABEL) : [],
         settings: Object.assign(base.settings, data.settings || {}),
         blacklist: Array.isArray(data.blacklist) ? data.blacklist : [],
         recent: data.recent && typeof data.recent === 'object' ? data.recent : {}
@@ -446,11 +471,14 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   }
 
   // ---------- 篩選 ----------
-  function eligiblePool() {
+  function catNames() { return store.cats.map((k) => CAT_LABEL[k]).join('、'); }
+  // ignoreCats：算每個類別按鈕上的數字時，先不套用類別篩選
+  function eligiblePool(ignoreCats) {
     const s = store.settings;
     const recentCut = Date.now() - RECENT_MS;
     return state.shops.filter((shop) => {
       if (shop.distance > store.radius) return false;
+      if (!ignoreCats && store.cats.length && !(shop.cats || []).some((c) => store.cats.includes(c))) return false;
       if (state.excluded.has(shop.id)) return false;
       if (store.blacklist.includes(shop.id)) return false;
       if (s.skipRecent && store.recent[shop.id] > recentCut) return false;
@@ -607,6 +635,17 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
       b.setAttribute('aria-pressed', String(b.dataset.mode === store.mode));
     });
 
+    const base = state.fetched && state.fetched.radius === store.radius && !state.loading ? eligiblePool(true) : null;
+    document.querySelectorAll('[data-cat]').forEach((b) => {
+      const key = b.dataset.cat;
+      const on = key === 'all' ? store.cats.length === 0 : store.cats.includes(key);
+      b.setAttribute('aria-pressed', String(on));
+      const n = base ? (key === 'all' ? base.length : base.filter((s) => (s.cats || []).includes(key)).length) : null;
+      b.querySelector('.chip-n').textContent = n === null ? '' : String(n);
+      const label = key === 'all' ? '全部' : CAT_LABEL[key];
+      b.setAttribute('aria-label', n === null ? label : `${label}，${n} 家`);
+    });
+
     const idle = store.mode === 'three' ? '抽三家' : '抽一家';
     const btn = $('drawBtn');
     btn.disabled = state.drawing || state.loading || state.locStatus === 'locating';
@@ -631,7 +670,10 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
     else if (state.fetched && state.fetched.radius === store.radius) {
       const n = eligiblePool().length;
       const rl = radiusLabel(store.radius);
-      text = n === 0 ? `${rl}內沒有可以抽的店` : `${mealLabel()}，${rl}內有 ${n} 家可以抽`;
+      const cn = catNames();
+      if (n === 0) text = `${rl}內沒有可以抽的${cn || '店'}`;
+      else if (cn) text = `${mealLabel()}，${rl}內的${cn}有 ${n} 家可以抽`;
+      else text = `${mealLabel()}，${rl}內有 ${n} 家可以抽`;
     }
     $('countText').textContent = text;
     $('notice').textContent = notice;
@@ -739,10 +781,13 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
 
   function renderEmpty() {
     const rl = radiusLabel(store.radius);
-    $('emptyTitle').textContent = `${rl}內沒有可以抽的店`;
+    const cn = catNames();
+    $('emptyTitle').textContent = `${rl}內沒有可以抽的${cn || '店'}`;
     let why = '附近現在剛好沒有開著的店。';
     if (state.excluded.size > 0) why = '這次開著的店都被你排除了，或是被篩選條件擋掉了。';
     else if (state.shops.length > 0) why = '附近開著的店都被篩選條件擋掉了，放寬一點再抽看看。';
+    if (cn && state.excluded.size === 0 && eligiblePool(true).length > 0) why = `附近開著的店裡，現在沒有${cn}。換個類別，或改成不限類別再抽。`;
+    $('anyCat').hidden = store.cats.length === 0;
     $('emptyText').textContent = why;
     $('expandBtn').hidden = store.radius >= 2000;
     $('expandBtn').textContent = store.radius < 1000 ? '擴大到 1 公里' : '擴大到 2 公里';
@@ -785,6 +830,21 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
 
   document.querySelectorAll('[data-radius]').forEach((b) => {
     b.addEventListener('click', () => setRadius(Number(b.dataset.radius)));
+  });
+  [['all', '全部'], ...CATEGORIES].forEach(([key, label]) => {
+    const b = el('button', 'chip');
+    b.type = 'button';
+    b.dataset.cat = key;
+    b.append(el('span', '', label), el('span', 'chip-n'));
+    b.addEventListener('click', () => {
+      if (key === 'all') store.cats = [];
+      else if (store.cats.includes(key)) store.cats = store.cats.filter((k) => k !== key);
+      else store.cats = store.cats.concat(key);
+      if (store.cats.length === CATEGORIES.length) store.cats = [];
+      saveStore();
+      renderHome();
+    });
+    $('catRow').append(b);
   });
   document.querySelectorAll('[data-mode]').forEach((b) => {
     b.addEventListener('click', () => {
@@ -831,6 +891,11 @@ dialog::backdrop { background: rgba(15, 42, 63, .35); }
   $('expandBtn').addEventListener('click', () => {
     show('home');
     setRadius(store.radius < 1000 ? 1000 : 2000);
+  });
+  $('anyCat').addEventListener('click', () => {
+    store.cats = [];
+    saveStore();
+    show('home');
   });
   $('clearAll').addEventListener('click', () => {
     state.excluded.clear();

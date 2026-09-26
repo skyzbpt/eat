@@ -4,13 +4,18 @@
 //   GET  /api/photo   把店家照片轉給前端（金鑰不會出現在瀏覽器）
 // 其他路徑交給 public/ 裡的靜態檔（index.html）。
 
+import { categorize } from './categories.js';
+
 const NEARBY_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 
 // 只拿需要的欄位。評分、評論數、價位、營業時間、電話屬於 Enterprise 等級，
 // 不要加 reviews、delivery 這類欄位，否則會跳到更貴的 Enterprise + Atmosphere。
+// primaryType、types 是 Pro 等級，比 Enterprise 低，加了不會變貴，用來分類別。
 const FIELD_MASK = [
   'places.id',
   'places.displayName',
+  'places.primaryType',
+  'places.types',
   'places.primaryTypeDisplayName',
   'places.location',
   'places.businessStatus',
@@ -151,6 +156,7 @@ function compact(place, lat, lng, radius) {
     id: place.id,
     name: (place.displayName && place.displayName.text) || '沒有店名',
     type: (place.primaryTypeDisplayName && place.primaryTypeDisplayName.text) || '',
+    cats: categorize(place),
     distance: Number.isFinite(dist) ? Math.round(dist) : radius,
     rating: typeof place.rating === 'number' ? place.rating : null,
     reviews: place.userRatingCount || 0,

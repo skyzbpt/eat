@@ -8,7 +8,9 @@ chou-shi-qian/
 ├── package.json       指令：npm run dev / deploy / test
 ├── wrangler.toml      Cloudflare 設定
 ├── src/worker.js      後端：幫你向 Google 查店家，金鑰藏在這裡
+├── src/categories.js  幫店家分類別（飯、麵、小吃…）
 ├── public/index.html  前端：你在手機上看到的畫面
+├── public/icons/      加入主畫面用的籤筒圖示
 └── test/              後端測試（用假資料，不花錢）
 ```
 
@@ -18,8 +20,12 @@ chou-shi-qian/
 2. 在「API 和服務」裡啟用 **Places API (New)**。注意是 New 版本，不是舊的 Places API。
 3. 到「憑證」建立 API 金鑰。
 4. 編輯這把金鑰：「API 限制」只勾 Places API (New)。「應用程式限制」維持「無」，因為金鑰只放在 Cloudflare，不會出現在瀏覽器。
-5. **一定要設用量上限**：到 Places API (New) 的「配額與系統限制」，把每天的請求上限調低（例如每天 60 次）。這樣就算網址外流，帳單也不會失控。
-6. 到「帳單 → 預算與快訊」設一個小額預算提醒，例如 5 美元。
+5. **一定要設用量上限**：到「Google Maps Platform → 配額」，選 Places API (New)，找到 SearchNearby 那一項。
+   - 有「每天」的上限：調成每天 60 次左右。
+   - 只有「每分鐘」的上限：調成每分鐘 10 次。每抽一次會同時查 3 次，不要低於 3。
+   這樣就算網址外流，用量也不會暴衝。照片那一項（GetPhotoMedia）也可以照同樣方式調低。
+6. 到「帳單 → 預算與快訊」設一個小額預算提醒，例如 5 美元。注意預算只會寄信提醒，**不會自動停用**。
+   如果配額只能設每分鐘，建議再用下面「資料與隱私」提到的 Cloudflare Access 把網站鎖成只有你能開。
 
 ## 二、部署到 Cloudflare（約 5 分鐘）
 
@@ -38,9 +44,9 @@ iPhone 在 Safari 按「分享 → 加入主畫面」，用起來就像 App。
 
 ## 三、Google 標誌（上線前補上）
 
-沒有搭配 Google 地圖顯示店家資料時，Google 規定畫面上要放 Google 標誌。
-到 Google 的「Places API 政策與出處」說明頁下載官方標誌，存成 `public/google-logo.png` 再重新部署。
-沒放之前，畫面會先用「Google Maps」文字代替。
+沒有搭配 Google 地圖顯示店家資料時，Google 規定畫面上要放 **Google Maps 標誌**，版面不夠時才可以用「Google Maps」文字代替。
+到 Google 的「Places API 政策與出處」（Policies and attributions for Places API）說明頁，下載淺色背景用的官方 Google Maps 標誌，存成 `public/google-logo.png` 再重新部署。
+不要自己重畫或改顏色。沒放之前，畫面會先用「Google Maps」文字代替。
 
 ## 在自己電腦上測試
 

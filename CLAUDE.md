@@ -10,6 +10,8 @@
 
 - `public/index.html`：整個前端，單一檔案，原生 JS，沒有框架、沒有建置步驟。
 - `src/worker.js`：後端。`POST /api/nearby` 查附近營業中的店，`GET /api/photo` 轉店家照片。其他路徑由 `[assets]` 回傳 `public/` 的靜態檔。
+- `src/categories.js`：依 `primaryType`、`types` 和店名關鍵字幫店家分類別（key 要和前端 `CATEGORIES` 一致）。放在 Worker 端是為了能用 `npm test` 測，不會多打 API。
+- `public/manifest.webmanifest`、`public/icons/`：PWA 設定和籤筒圖示。刻意不加 Service Worker（不能快取店家資料）。
 - `test/worker.test.mjs`：用假的 Google 回應測 Worker，不會真的呼叫 API。
 - `wrangler.toml`：Worker 設定。金鑰是 secret `GOOGLE_MAPS_KEY`，不寫在任何檔案裡。
 
@@ -68,13 +70,11 @@ npx wrangler secret put GOOGLE_MAPS_KEY   # 設定金鑰，讓 Sky 自己貼
 
 ## 目前進度
 
-已完成：定位、營業中篩選、快打烊提醒、單抽／抽三選一、評分與評論數門檻、7 天內吃過不抽（按導航才算吃過）、黑名單、重抽次數文案、照片與出處、Worker 測試。
+已完成：定位、營業中篩選、快打烊提醒、單抽／抽三選一、評分與評論數門檻、7 天內吃過不抽（按導航才算吃過）、黑名單、重抽次數文案、照片與出處、Worker 測試、類別篩選、PWA（manifest 和圖示）。
 
 還沒做（依優先順序）：
 
 1. **部署上線**：陪 Sky 走完 README 的 Google 金鑰設定、每日配額上限、預算提醒、部署。
-2. **補 Google 標誌圖**。
-3. **類別篩選**（飯、麵、小吃、便當、異國、早午餐、咖啡甜點）。可以用 `primaryType` 在前端分組，不需要多打 API。
-4. **手動改位置**：定位不準或想查別處時用。注意 Geocoding 另外計費。
-5. **PWA**：manifest 和圖示，讓「加入主畫面」更像 App。
-6. 之後再說：LINE LIFF 多人投票、雨天自動縮小範圍。
+2. **補 Google 標誌圖**：要 Sky 從 Google 官方下載 Google Maps 標誌（開發環境連不到 Google 網域，也不能自己畫）。
+3. **手動改位置**：定位不準或想查別處時用。注意 Geocoding 另外計費，做之前先算成本給 Sky。
+4. 之後再說：LINE LIFF 多人投票、雨天自動縮小範圍、咖啡甜點類店家偏少（`QUERIES` 沒查 `cafe`，要加就多一次計費）。
